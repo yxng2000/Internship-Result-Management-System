@@ -1,14 +1,12 @@
--- ============================================================
+
 -- COMP1044 Internship Result Management System
 -- Database Schema + Sample Data
--- ============================================================
 
 CREATE DATABASE IF NOT EXISTS internship_db;
 USE internship_db;
 
--- ------------------------------------------------------------
 -- Table: users (Admin + Assessor login accounts)
--- ------------------------------------------------------------
+
 CREATE TABLE users (
     user_id     INT AUTO_INCREMENT PRIMARY KEY,
     username    VARCHAR(50) NOT NULL UNIQUE,
@@ -19,9 +17,7 @@ CREATE TABLE users (
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- ------------------------------------------------------------
 -- Table: students
--- ------------------------------------------------------------
 CREATE TABLE students (
     student_id  VARCHAR(20) PRIMARY KEY,    -- e.g. "20304050"
     full_name   VARCHAR(100) NOT NULL,
@@ -30,9 +26,7 @@ CREATE TABLE students (
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- ------------------------------------------------------------
 -- Table: internships (links student to assessor + company)
--- ------------------------------------------------------------
 CREATE TABLE internships (
     internship_id   INT AUTO_INCREMENT PRIMARY KEY,
     student_id      VARCHAR(20) NOT NULL,
@@ -45,9 +39,7 @@ CREATE TABLE internships (
     FOREIGN KEY (assessor_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
--- ------------------------------------------------------------
 -- Table: assessments (Student C owns this table)
--- ------------------------------------------------------------
 CREATE TABLE assessments (
     assessment_id   INT AUTO_INCREMENT PRIMARY KEY,
     student_id      VARCHAR(20) NOT NULL,
@@ -70,9 +62,7 @@ CREATE TABLE assessments (
     UNIQUE KEY unique_assessment (student_id, assessor_id)  -- one assessment per student per assessor
 );
 
--- ============================================================
 -- SAMPLE DATA
--- ============================================================
 
 -- Users (password is MD5 of "password123" for demo)
 INSERT INTO users (username, password, role, full_name, email) VALUES
