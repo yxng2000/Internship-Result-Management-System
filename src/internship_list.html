@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Internship Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0e0f13;
+    --surface:   #16181f;
+    --surface2:  #1e2029;
+    --border:    #2a2d38;
+    --accent:    #4f8ef7;
+    --accent2:   #7c6af7;
+    --text:      #e8eaf0;
+    --muted:     #6b7080;
+    --success:   #34c97b;
+    --warning:   #f0a030;
+    --danger:    #e05555;
+    --radius:    10px;
+    --font:      'Syne', sans-serif;
+    --mono:      'DM Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 0;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+  }
+
+  .logo {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    padding: 0 20px 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
+  .logo span { color: var(--text); }
+
+  .nav-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 20px 8px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(79,142,247,0.07); }
+
+  .nav-item svg { flex-shrink: 0; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #fff;
+    margin-bottom: 6px;
+  }
+
+  /* ── Main ── */
+  .main {
+    margin-left: 220px;
+    flex: 1;
+    padding: 32px 36px;
+    max-width: 1100px;
+  }
+
+  .page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+
+  .page-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  .page-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #3d7ef5; }
+  .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--border); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  /* ── Stats row ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .stat-value { font-size: 26px; font-weight: 700; font-family: var(--mono); }
+  .stat-value.blue { color: var(--accent); }
+  .stat-value.green { color: var(--success); }
+  .stat-value.amber { color: var(--warning); }
+  .stat-value.purple { color: var(--accent2); }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    max-width: 320px;
+  }
+
+  .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+
+  .search-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13.5px;
+    padding: 9px 12px 9px 36px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus { border-color: var(--accent); }
+
+  .filter-select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 9px 14px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .filter-select:focus { border-color: var(--accent); }
+
+  /* ── Table ── */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+
+  thead th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+
+  tbody td { padding: 13px 16px; vertical-align: middle; }
+
+  .student-cell { display: flex; flex-direction: column; gap: 2px; }
+  .student-id { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  .assessor-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: 12px;
+    background: rgba(79,142,247,0.12);
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .company-name { font-weight: 500; }
+  .company-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .status-assigned { background: rgba(52,201,123,0.12); color: var(--success); }
+  .status-pending  { background: rgba(240,160,48,0.12);  color: var(--warning); }
+  .status-unassigned { background: rgba(107,112,128,0.12); color: var(--muted); }
+
+  .actions { display: flex; gap: 6px; }
+
+  .icon-btn {
+    width: 30px; height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+
+  .icon-btn:hover { background: var(--surface2); color: var(--text); border-color: var(--text); }
+  .icon-btn.danger:hover { color: var(--danger); border-color: var(--danger); background: rgba(224,85,85,0.08); }
+
+  /* ── Empty / no results ── */
+  .no-results {
+    text-align: center;
+    padding: 48px 16px;
+    color: var(--muted);
+    font-size: 14px;
+    display: none;
+  }
+
+  /* ── Pagination ── */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
+  .page-btns { display: flex; gap: 6px; }
+
+  .page-btn {
+    padding: 5px 11px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--font);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .page-btn:hover, .page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--success);
+    border-radius: var(--radius);
+    padding: 12px 18px;
+    font-size: 13px;
+    color: var(--text);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.25s;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="logo">IRM<span>sys</span></div>
+
+  <div class="nav-label">Admin Panel</div>
+
+  <a class="nav-item" href="#">
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Dashboard
+  </a>
+  <a class="nav-item" href="#">
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    User Management
+  </a>
+  <a class="nav-item active" href="#">
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+    Internship Mgmt
+  </a>
+  <a class="nav-item" href="#">
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    Results
+  </a>
+
+  <div class="sidebar-footer">
+    <div class="avatar">AD</div>
+    Admin User
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main class="main">
+
+  <div class="page-header">
+    <div>
+      <div class="page-title">Internship Management</div>
+      <div class="page-sub">Manage student internship assignments and records</div>
+    </div>
+    <a href="assign_student.html" class="btn btn-primary">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Assign Student
+    </a>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Students</div>
+      <div class="stat-value blue" id="stat-total">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Assigned</div>
+      <div class="stat-value green" id="stat-assigned">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pending</div>
+      <div class="stat-value amber" id="stat-pending">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Unassigned</div>
+      <div class="stat-value purple" id="stat-unassigned">0</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="search-input" type="text" id="searchInput" placeholder="Search by student ID or name…">
+    </div>
+    <select class="filter-select" id="statusFilter">
+      <option value="all">All Status</option>
+      <option value="assigned">Assigned</option>
+      <option value="pending">Pending</option>
+      <option value="unassigned">Unassigned</option>
+    </select>
+    <select class="filter-select" id="assessorFilter">
+      <option value="all">All Assessors</option>
+      <option value="Dr. Amir">Dr. Amir</option>
+      <option value="Dr. Lina">Dr. Lina</option>
+      <option value="Prof. Raj">Prof. Raj</option>
+    </select>
+    <button class="btn btn-ghost btn-sm" onclick="exportCSV()">
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Programme</th>
+          <th>Assessor</th>
+          <th>Company</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <div class="no-results" id="noResults">No records match your search.</div>
+    <div class="pagination">
+      <span id="pageInfo">Showing 0 of 0 records</span>
+      <div class="page-btns" id="pageBtns"></div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const ROWS_PER_PAGE = 8;
+  let currentPage = 1;
+
+  let data = [];
+
+	function loadInternships() {
+	  fetch('get_internships.php')
+		.then(response => response.json())
+		.then(result => {
+		  data = result.records;
+
+		  document.getElementById("stat-total").textContent = result.counts.total;
+		  document.getElementById("stat-assigned").textContent = result.counts.assigned;
+		  document.getElementById("stat-pending").textContent = result.counts.pending;
+		  document.getElementById("stat-unassigned").textContent = result.counts.unassigned;
+
+		  render();
+		})
+		.catch(error => {
+		  console.error('Error loading internships:', error);
+		});
+	}
+
+  function statusBadge(s) {
+    const map = { assigned:"status-assigned", pending:"status-pending", unassigned:"status-unassigned" };
+    return `<span class="status-badge ${map[s]}">${s.charAt(0).toUpperCase()+s.slice(1)}</span>`;
+  }
+
+  function filteredData() {
+    const q = document.getElementById("searchInput").value.toLowerCase();
+    const sf = document.getElementById("statusFilter").value;
+    const af = document.getElementById("assessorFilter").value;
+    return data.filter(r =>
+	  (r.student_id.toLowerCase().includes(q) || r.full_name.toLowerCase().includes(q)) &&
+	  (sf === "all" || r.status === sf) &&
+	  (af === "all" || (r.assessor_name && r.assessor_name.toLowerCase().includes(af.toLowerCase())))
+	);
+  }
+
+  function updateStats() {
+    document.getElementById("stat-total").textContent = data.length;
+    document.getElementById("stat-assigned").textContent = data.filter(r=>r.status==="assigned").length;
+    document.getElementById("stat-pending").textContent = data.filter(r=>r.status==="pending").length;
+    document.getElementById("stat-unassigned").textContent = data.filter(r=>r.status==="unassigned").length;
+  }
+
+  function render() {
+    const rows = filteredData();
+    const total = rows.length;
+    const totalPages = Math.max(1, Math.ceil(total / ROWS_PER_PAGE));
+    if (currentPage > totalPages) currentPage = 1;
+
+    const slice = rows.slice((currentPage-1)*ROWS_PER_PAGE, currentPage*ROWS_PER_PAGE);
+    const tbody = document.getElementById("tableBody");
+
+    if (slice.length === 0) {
+      tbody.innerHTML = "";
+      document.getElementById("noResults").style.display = "block";
+    } else {
+      document.getElementById("noResults").style.display = "none";
+      tbody.innerHTML = slice.map(r => `
+        <tr>
+          <td>
+            <div class="student-cell">
+              <span>${r.full_name}</span>
+              <span class="student-id">${r.student_id}</span>
+            </div>
+          </td>
+          <td>${r.programme}</td>
+          <td>${r.assessor_name ? `<span class="assessor-pill"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>${r.assessor_name}</span>` : '<span style="color:var(--muted);font-size:12px">—</span>'}</td>
+          <td>
+            <div class="company-name">${r.company_name || '<span style="color:var(--muted);font-size:12px">Not assigned</span>'}</div>
+          </td>
+          <td>${statusBadge(r.status)}</td>
+          <td>
+            <div class="actions">
+              <button class="icon-btn" title="Edit" onclick="editRecord('${r.internship_id}')">
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="icon-btn danger" title="Delete" onclick="deleteRecord('${r.internship_id}')">
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    document.getElementById("pageInfo").textContent = `Showing ${Math.min(total, (currentPage-1)*ROWS_PER_PAGE + slice.length)} of ${total} records`;
+
+    const pageBtns = document.getElementById("pageBtns");
+    pageBtns.innerHTML = "";
+    for (let i = 1; i <= totalPages; i++) {
+      const btn = document.createElement("button");
+      btn.className = "page-btn" + (i === currentPage ? " active" : "");
+      btn.textContent = i;
+      btn.onclick = () => { currentPage = i; render(); };
+      pageBtns.appendChild(btn);
+    }
+  }
+
+  function editRecord(id) {
+    window.location.href = `edit_internship.html?id=${id}`;
+  }
+
+  function deleteRecord(id) {
+    if (confirm(`Delete internship record for ${id}?`)) {
+      const i = data.findIndex(r => String(r.internship_id) === String(id));
+      if (i !== -1) { data.splice(i, 1); updateStats(); render(); showToast("Record deleted."); }
+    }
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2800);
+  }
+
+  function exportCSV() {
+    const rows = filteredData();
+    const csv = ["Student ID,Name,Programme,Assessor,Company,Status",
+      ...rows.map(r => `${r.student_id},${r.full_name},${r.programme},${r.assessor_name || ''},${r.company_name || ''},${r.status}`)
+    ].join("\n");
+    const a = document.createElement("a");
+    a.href = "data:text/csv," + encodeURIComponent(csv);
+    a.download = "internship_records.csv";
+    a.click();
+    showToast("CSV exported.");
+  }
+
+  document.getElementById("searchInput").addEventListener("input", () => { currentPage = 1; render(); });
+  document.getElementById("statusFilter").addEventListener("change", () => { currentPage = 1; render(); });
+  document.getElementById("assessorFilter").addEventListener("change", () => { currentPage = 1; render(); });
+
+  loadInternships();
+</script>
+</body>
+</html>
