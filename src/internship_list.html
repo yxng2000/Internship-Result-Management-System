@@ -274,7 +274,7 @@
     letter-spacing: 0.04em;
   }
 
-  .status-assigned { background: rgba(52,201,123,0.12); color: var(--success); }
+  .status-completed { background: rgba(52,201,123,0.12); color: var(--success); }
   .status-pending  { background: rgba(240,160,48,0.12);  color: var(--warning); }
   .status-unassigned { background: rgba(107,112,128,0.12); color: var(--muted); }
 
@@ -403,8 +403,8 @@
       <div class="stat-value blue" id="stat-total">0</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Assigned</div>
-      <div class="stat-value green" id="stat-assigned">0</div>
+      <div class="stat-label">Completed</div>
+      <div class="stat-value green" id="stat-completed">0</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Pending</div>
@@ -424,7 +424,7 @@
     </div>
     <select class="filter-select" id="statusFilter">
       <option value="all">All Status</option>
-      <option value="assigned">Assigned</option>
+      <option value="completed">Completed</option>
       <option value="pending">Pending</option>
       <option value="unassigned">Unassigned</option>
     </select>
@@ -479,7 +479,7 @@
 		  data = result.records;
 
 		  document.getElementById("stat-total").textContent = result.counts.total;
-		  document.getElementById("stat-assigned").textContent = result.counts.assigned;
+		  document.getElementById("stat-completed").textContent = result.counts.completed;
 		  document.getElementById("stat-pending").textContent = result.counts.pending;
 		  document.getElementById("stat-unassigned").textContent = result.counts.unassigned;
 
@@ -491,7 +491,7 @@
 	}
 
   function statusBadge(s) {
-    const map = { assigned:"status-assigned", pending:"status-pending", unassigned:"status-unassigned" };
+    const map = { completed:"status-completed", pending:"status-pending", unassigned:"status-unassigned" };
     return `<span class="status-badge ${map[s]}">${s.charAt(0).toUpperCase()+s.slice(1)}</span>`;
   }
 
@@ -508,7 +508,7 @@
 
   function updateStats() {
     document.getElementById("stat-total").textContent = data.length;
-    document.getElementById("stat-assigned").textContent = data.filter(r=>r.status==="assigned").length;
+    document.getElementById("stat-completed").textContent = data.filter(r=>r.status==="completed").length;
     document.getElementById("stat-pending").textContent = data.filter(r=>r.status==="pending").length;
     document.getElementById("stat-unassigned").textContent = data.filter(r=>r.status==="unassigned").length;
   }
