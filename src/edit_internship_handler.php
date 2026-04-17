@@ -10,24 +10,53 @@ ini_set('display_errors', 1);
 header('Content-Type: application/json');
 require_once 'config.php';
 
+function jsonResponse($data) {
+    echo json_encode($data);
+    exit;
+}
+
+function convertDate($d) {
+    if ($d === null || $d === '') return null;
+
+    $parts = explode('/', $d);
+    if (count($parts) !== 3) return false;
+
+    $day   = trim($parts[0]);
+    $month = trim($parts[1]);
+    $year  = trim($parts[2]);
+
+    if (!checkdate((int)$month, (int)$day, (int)$year)) {
+        return false;
+    }
+
+    return $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT) . '-' . str_pad($day, 2, '0', STR_PAD_LEFT);
+}
+
 // ── GET: load record ──────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-    if (!$id) { echo json_encode(['error' => 'No ID provided.']); exit; }
+
+    if (!$id) {
+        jsonResponse([
+            'success' => false,
+            'error' => 'No ID provided.'
+        ]);
+    }
 
     $conn = getConnection();
+
     $stmt = $conn->prepare("
         SELECT
             i.internship_id,
             i.student_id,
             s.full_name,
             s.programme,
-            u.user_id     AS assessor_id,
-            u.full_name   AS assessor_name,
+            u.user_id   AS assessor_id,
+            u.full_name AS assessor_name,
             i.company_name,
             i.industry,
             DATE_FORMAT(i.start_date, '%d/%m/%Y') AS start_date,
-            DATE_FORMAT(i.end_date,   '%d/%m/%Y') AS end_date,
+            DATE_FORMAT(i.end_date, '%d/%m/%Y')   AS end_date,
             i.status,
             i.notes,
             DATE_FORMAT(i.updated_at, '%d/%m/%Y') AS last_updated
@@ -35,16 +64,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         JOIN students s ON i.student_id = s.student_id
         LEFT JOIN users u ON i.assessor_id = u.user_id
         WHERE i.internship_id = ?
+        LIMIT 1
     ");
+
+    if (!$stmt) {
+        $conn->close();
+        jsonResponse([
+            'success' => false,
+            'error' => 'Prepare failed: ' . $conn->error
+        ]);
+    }
+
     $stmt->bind_param('i', $id);
-    $stmt->execute();
-    $record = $stmt->get_result()->fetch_assoc();
+
+    if (!$stmt->execute()) {
+        $error = $stmt->error;
+        $stmt->close();
+        $conn->close();
+        jsonResponse([
+            'success' => false,
+            'error' => 'Execute failed: ' . $error
+        ]);
+    }
+
+    $result = $stmt->get_result();
+    $record = $result ? $result->fetch_assoc() : null;
     $stmt->close();
 
     if (!$record) {
-        echo json_encode(['success' => false, 'error' => 'Record not found.']);
         $conn->close();
-        exit;
+        jsonResponse([
+            'success' => false,
+            'error' => 'Record not found.'
+        ]);
     }
 
     $assessors = [];
@@ -52,27 +104,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         SELECT
             u.user_id,
             u.full_name,
+            u.programme,
             COUNT(i.internship_id) AS student_count
         FROM users u
         LEFT JOIN internships i ON u.user_id = i.assessor_id
         WHERE LOWER(u.role) = 'assessor'
-        GROUP BY u.user_id, u.full_name
+        GROUP BY u.user_id, u.full_name, u.programme
         ORDER BY u.full_name
     ";
 
-    $result = $conn->query($sql);
-    while ($row = $result->fetch_assoc()) {
-        $assessors[] = $row;
+    $assessorResult = $conn->query($sql);
+
+    if ($assessorResult) {
+        while ($row = $assessorResult->fetch_assoc()) {
+            $assessors[] = $row;
+        }
     }
 
-    echo json_encode([
+    $conn->close();
+
+    jsonResponse([
         'success' => true,
         'record' => $record,
-        'assessors' => $assessors
+        'assessors' => $assessors,
+        'is_locked' => ($record['status'] === 'completed'),
+        'message' => ($record['status'] === 'completed')
+            ? 'This record is completed and should be view-only.'
+            : ''
     ]);
-
-    $conn->close();
-    exit;
 }
 
 // ── POST: save changes ────────────────────────────────────
@@ -82,40 +141,119 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = is_array($json) ? $json : $_POST;
 
     $internship_id = isset($input['internship_id']) ? (int)$input['internship_id'] : 0;
-    $assessor_id   = isset($input['assessor_id'])   ? (int)$input['assessor_id']   : 0;
-    $company_name  = isset($input['company_name'])  ? trim($input['company_name'])  : '';
-    $industry      = isset($input['industry'])      ? trim($input['industry'])      : '';
-    $start_date    = isset($input['start_date'])    ? trim($input['start_date'])    : '';
-    $end_date      = isset($input['end_date'])      ? trim($input['end_date'])      : '';
-    $status        = isset($input['status'])        ? strtolower(trim($input['status'])) : '';
-    $notes         = isset($input['notes'])         ? trim($input['notes'])         : '';
+    $assessor_id   = isset($input['assessor_id']) && $input['assessor_id'] !== '' ? (int)$input['assessor_id'] : null;
+    $company_name  = isset($input['company_name']) ? trim($input['company_name']) : '';
+    $industry      = isset($input['industry']) ? trim($input['industry']) : '';
+    $start_date    = isset($input['start_date']) ? trim($input['start_date']) : '';
+    $end_date      = isset($input['end_date']) ? trim($input['end_date']) : '';
+    $status        = isset($input['status']) ? strtolower(trim($input['status'])) : '';
+    $notes         = isset($input['notes']) ? trim($input['notes']) : '';
 
     $errors = [];
 
-    if (!$internship_id)      $errors[] = 'Invalid record ID.';
-    if ($assessor_id <= 0)    $errors[] = 'Please select an assessor.';
-    if (empty($company_name)) $errors[] = 'Company name is required.';
-    if (!in_array($status, ['assigned', 'pending', 'unassigned'])) $errors[] = 'Invalid status.';
-
-    function convertDate($d) {
-        $parts = explode('/', $d);
-        if (count($parts) !== 3) return false;
-        return $parts[2] . '-' . $parts[1] . '-' . $parts[0];
+    if (!$internship_id) {
+        $errors[] = 'Invalid record ID.';
     }
 
-    $start_mysql = convertDate($start_date);
-    $end_mysql   = convertDate($end_date);
+    // edit page 不允许手动设成 completed
+    if (!in_array($status, ['unassigned', 'pending'])) {
+        $errors[] = 'Invalid status. Edit page only allows unassigned or pending.';
+    }
 
-    if (!$start_mysql) $errors[] = 'Invalid start date.';
-    if (!$end_mysql)   $errors[] = 'Invalid end date.';
-    if ($start_mysql && $end_mysql && $end_mysql <= $start_mysql) $errors[] = 'End date must be after start date.';
+    // 先查当前记录
+    $conn = getConnection();
+
+    $checkStmt = $conn->prepare("
+        SELECT internship_id, status
+        FROM internships
+        WHERE internship_id = ?
+        LIMIT 1
+    ");
+
+    if (!$checkStmt) {
+        $conn->close();
+        jsonResponse([
+            'success' => false,
+            'errors' => ['Prepare failed: ' . $conn->error]
+        ]);
+    }
+
+    $checkStmt->bind_param('i', $internship_id);
+
+    if (!$checkStmt->execute()) {
+        $error = $checkStmt->error;
+        $checkStmt->close();
+        $conn->close();
+        jsonResponse([
+            'success' => false,
+            'errors' => ['Execute failed: ' . $error]
+        ]);
+    }
+
+    $existing = $checkStmt->get_result()->fetch_assoc();
+    $checkStmt->close();
+
+    if (!$existing) {
+        $conn->close();
+        jsonResponse([
+            'success' => false,
+            'errors' => ['Record not found.']
+        ]);
+    }
+
+    // 已完成记录不允许再改
+    if (strtolower($existing['status']) === 'completed') {
+        $conn->close();
+        jsonResponse([
+            'success' => false,
+            'errors' => ['Completed record cannot be edited.']
+        ]);
+    }
+
+    // 日期检查：只有非 unassigned 才需要
+    $start_mysql = null;
+    $end_mysql   = null;
+
+    if ($status !== 'unassigned') {
+        $start_mysql = convertDate($start_date);
+        $end_mysql   = convertDate($end_date);
+
+        if (!$start_mysql) $errors[] = 'Invalid start date.';
+        if (!$end_mysql)   $errors[] = 'Invalid end date.';
+        if ($start_mysql && $end_mysql && $end_mysql <= $start_mysql) {
+            $errors[] = 'End date must be after start date.';
+        }
+    }
+
+    // status logic
+    if ($status === 'unassigned') {
+        $assessor_id  = null;
+        $company_name = null;
+        $industry     = null;
+        $start_mysql  = null;
+        $end_mysql    = null;
+        $notes        = $notes; // notes 可留可不留
+    } else {
+        if ($assessor_id === null || $assessor_id <= 0) {
+            $errors[] = 'Please select an assessor.';
+        }
+        if ($company_name === '') {
+            $errors[] = 'Company name is required.';
+        }
+        if ($industry === '') {
+            $errors[] = 'Industry is required.';
+        }
+    }
 
     if (!empty($errors)) {
-        echo json_encode(['success' => false, 'errors' => $errors, 'received' => $input]);
-        exit;
+        $conn->close();
+        jsonResponse([
+            'success' => false,
+            'errors' => $errors,
+            'received' => $input
+        ]);
     }
 
-    $conn = getConnection();
     $stmt = $conn->prepare("
         UPDATE internships
         SET assessor_id  = ?,
@@ -124,9 +262,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             start_date   = ?,
             end_date     = ?,
             status       = ?,
-            notes        = ?
+            notes        = ?,
+            updated_at   = NOW()
         WHERE internship_id = ?
     ");
+
+    if (!$stmt) {
+        $conn->close();
+        jsonResponse([
+            'success' => false,
+            'errors' => ['Prepare failed: ' . $conn->error]
+        ]);
+    }
 
     $stmt->bind_param(
         'issssssi',
@@ -141,19 +288,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
 
     if ($stmt->execute()) {
-        echo json_encode([
+        $affected = $stmt->affected_rows;
+        $stmt->close();
+        $conn->close();
+
+        jsonResponse([
             'success' => true,
             'message' => 'Record updated successfully.',
-            'affected_rows' => $stmt->affected_rows
+            'affected_rows' => $affected
         ]);
     } else {
-        echo json_encode([
+        $error = $stmt->error;
+        $stmt->close();
+        $conn->close();
+
+        jsonResponse([
             'success' => false,
-            'errors' => ['Database error: ' . $stmt->error]
+            'errors' => ['Database error: ' . $error]
         ]);
     }
-
-    $stmt->close();
-    $conn->close();
-    exit;
 }
+
+jsonResponse([
+    'success' => false,
+    'error' => 'Unsupported request method.'
+]);
+?>

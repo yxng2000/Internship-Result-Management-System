@@ -8,9 +8,10 @@ require_once 'config.php';
 
 $conn = getConnection();
 
-$search   = isset($_GET['search']) ? '%' . $conn->real_escape_string($_GET['search']) . '%' : '%';
-$status   = isset($_GET['status']) && $_GET['status'] !== 'all' ? $conn->real_escape_string($_GET['status']) : null;
-$assessor = isset($_GET['assessor']) && $_GET['assessor'] !== 'all' ? $conn->real_escape_string($_GET['assessor']) : null;
+$search    = isset($_GET['search']) ? '%' . $conn->real_escape_string($_GET['search']) . '%' : '%';
+$status    = isset($_GET['status']) && $_GET['status'] !== 'all' ? $conn->real_escape_string($_GET['status']) : null;
+$assessor  = isset($_GET['assessor']) && $_GET['assessor'] !== 'all' ? $conn->real_escape_string($_GET['assessor']) : null;
+$programme = isset($_GET['programme']) && $_GET['programme'] !== 'all' ? $conn->real_escape_string($_GET['programme']) : null;
 
 $sql = "
     SELECT
@@ -23,21 +24,33 @@ $sql = "
         i.start_date,
         i.end_date,
         i.internship_id,
+        i.status,
         a.total_score
     FROM internships i
     JOIN students s ON i.student_id = s.student_id
     LEFT JOIN users u ON i.assessor_id = u.user_id
-    LEFT JOIN assessments a 
-        ON i.internship_id = a.internship_id
+    LEFT JOIN assessments a ON i.internship_id = a.internship_id
     WHERE (s.student_id LIKE ? OR s.full_name LIKE ?)
 ";
 
 $params = [$search, $search];
 $types  = 'ss';
 
+if ($status) {
+    $sql .= " AND i.status = ?";
+    $params[] = $status;
+    $types .= 's';
+}
+
 if ($assessor) {
     $sql .= " AND u.full_name = ?";
     $params[] = $assessor;
+    $types .= 's';
+}
+
+if ($programme) {
+    $sql .= " AND s.programme = ?";
+    $params[] = $programme;
     $types .= 's';
 }
 
@@ -65,20 +78,12 @@ $counts = [
 ];
 
 while ($row = $result->fetch_assoc()) {
-    if (empty($row['assessor_name'])) {
-        $row['status'] = 'unassigned';
-    } elseif ($row['total_score'] === null) {
-        $row['status'] = 'pending';
-    } else {
-        $row['status'] = 'completed';
-    }
-
-    if ($status && $row['status'] !== $status) {
-        continue;
-    }
-
     $rows[] = $row;
-    $counts[$row['status']]++;
+
+    if (isset($counts[$row['status']])) {
+        $counts[$row['status']]++;
+    }
+
     $counts['total']++;
 }
 

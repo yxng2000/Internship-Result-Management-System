@@ -1,0 +1,29 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+header('Content-Type: application/json');
+require_once 'config.php';
+
+$conn = getConnection();
+$query = "
+    SELECT 
+        i.internship_id, i.student_id, s.full_name, s.programme, 
+        i.company_name, u.full_name AS assessor_name, a.total_score,
+        a.undertaking_tasks, a.health_safety, a.theoretical_knowledge,
+        a.report_presentation, a.clarity_language, a.lifelong_learning,
+        a.project_management, a.time_management, a.comments
+    FROM internships i
+    JOIN students s ON i.student_id = s.student_id
+    LEFT JOIN users u ON i.assessor_id = u.user_id
+    LEFT JOIN assessments a ON i.internship_id = a.internship_id
+";
+$result = $conn->query($query);
+$records = [];
+if ($result && $result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        $records[] = $row;
+    }
+}
+echo json_encode(['records' => $records]);
+$conn->close();
+?>
