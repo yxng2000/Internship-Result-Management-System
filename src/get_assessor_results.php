@@ -1,9 +1,5 @@
 <?php
-// ============================================================
-//  get_assessor_results.php
-//  Returns assessment results ONLY for the logged-in assessor's
-//  assigned students, filtered by session user_id.
-// ============================================================
+    
 session_start();
 require_once 'auth.php';
 requireRole('assessor');
