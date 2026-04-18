@@ -5,7 +5,12 @@ header('Content-Type: application/json');
 require_once 'config.php';
 
 $conn = getConnection();
-$assessor_id = 2; // Hardcoded for now
+$assessor_id = (int)($_SESSION['user_id'] ?? 0);
+
+if (!$assessor_id) {
+    echo json_encode([]);
+    exit;
+}
 
 $query = "
     SELECT 
