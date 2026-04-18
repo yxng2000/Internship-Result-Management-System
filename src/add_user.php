@@ -3,6 +3,8 @@ require_once 'auth.php';
 requireRole('admin');
 require_once 'config.php';
 
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
 $error = '';
 $success = '';
 
@@ -83,6 +85,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($error === '') {
         $conn = getConnection();
+
+
+function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $description, $linkUrl = null)
+{
+    $actionType = mysqli_real_escape_string($conn, $actionType);
+    $targetType = mysqli_real_escape_string($conn, $targetType);
+    $title = mysqli_real_escape_string($conn, $title);
+    $description = mysqli_real_escape_string($conn, $description);
+    $linkUrl = $linkUrl !== null ? mysqli_real_escape_string($conn, $linkUrl) : null;
+
+    $targetIdValue = $targetId === null ? 'NULL' : (int)$targetId;
+    $linkValue = $linkUrl === null || $linkUrl === '' ? 'NULL' : "'" . $linkUrl . "'";
+
+    $sql = "
+        INSERT INTO activity_logs (action_type, target_type, target_id, title, description, link_url)
+        VALUES (
+            '$actionType',
+            '$targetType',
+            $targetIdValue,
+            '$title',
+            '$description',
+            $linkValue
+        )
+    ";
+
+    return mysqli_query($conn, $sql);
+}
+
         $conn->begin_transaction();
 
         try {
@@ -135,6 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
                 $stmt->bind_param("sssssss", $student_id, $hashedPassword, $full_name, $email, $student_id, $status, $programme);
                 $stmt->execute();
+                $newUserId = (int)$conn->insert_id;
                 $stmt->close();
             }
 
@@ -155,13 +186,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
                 $stmt->bind_param("ssssss", $assessor_username, $hashedPassword, $full_name, $email, $status, $assessor_programme);
                 $stmt->execute();
+                $newUserId = (int)$conn->insert_id;
                 $stmt->close();
             }
 
+            writeActivityLog(
+                $conn,
+                'add',
+                'user',
+                $newUserId ?? null,
+                'New ' . ucfirst($role) . ' account created',
+                $full_name . ' was added to the system and is currently marked as ' . $status . '.',
+                'user_management.php'
+            );
+
             $conn->commit();
-            header("Location: user_management.php?success=User added successfully");
+            $_SESSION['success'] = 'User added successfully.';
+            header("Location: user_management.php");
             exit();
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $conn->rollback();
             $error = $e->getMessage();
         }
@@ -173,497 +216,600 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Add User | IRMSYS</title>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: 'Syne', sans-serif;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Add User | IRMSYS</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      background: #0a0c14;
-      color: #ffffff;
-      display: flex;
-      min-height: 100vh;
-    }
+  :root {
+    --bg:        #0e0f13;
+    --surface:   #16181f;
+    --surface2:  #1e2029;
+    --border:    #2a2d38;
+    --accent:    #4f8ef7;
+    --accent2:   #7c6af7;
+    --text:      #e8eaf0;
+    --muted:     #6b7080;
+    --success:   #34c97b;
+    --warning:   #f0a030;
+    --danger:    #e05555;
+    --radius:    10px;
+    --font:      'Syne', sans-serif;
+    --mono:      'DM Mono', monospace;
+  }
 
-    .sidebar {
-      width: 240px;
-      background: #111523;
-      border-right: 1px solid rgba(255,255,255,0.06);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 24px 0;
-    }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+  }
 
-    .logo {
-      font-size: 18px;
-      font-weight: 700;
-      color: #66a3ff;
-      padding: 0 24px 24px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    overflow-y: auto;
+  }
 
-    .nav-section {
-      padding-top: 18px;
-    }
+  .logo {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    padding: 0 20px 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
 
-    .nav-title {
-      font-size: 11px;
-      letter-spacing: 2px;
-      color: rgba(255,255,255,0.35);
-      padding: 0 24px 14px;
-      text-transform: uppercase;
-    }
+  .logo span { color: var(--text); }
 
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: rgba(255,255,255,0.75);
-      text-decoration: none;
-      padding: 14px 24px;
-      transition: 0.2s;
-    }
+  .nav-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 20px 8px;
+  }
 
-    .nav-item:hover,
-    .nav-item.active {
-      background: rgba(74, 125, 255, 0.12);
-      color: #66a3ff;
-      border-left: 3px solid #4a7dff;
-      padding-left: 21px;
-    }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+  }
 
-    .admin-box {
-      border-top: 1px solid rgba(255,255,255,0.06);
-      padding: 20px 24px 0;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(79,142,247,0.07); }
 
-    .admin-avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: #738bff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-    }
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+  }
 
-    .admin-info small {
-      display: block;
-      color: rgba(255,255,255,0.5);
-      font-size: 12px;
-    }
+  .sidebar-user {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+  }
 
-    .main {
-      flex: 1;
-      padding: 36px;
-    }
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
 
-    .topbar {
-      margin-bottom: 28px;
-    }
+  .user-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(232, 234, 240, 0.68);
+    line-height: 1.3;
+    white-space: nowrap;
+  }
 
-    .topbar h1 {
-      font-size: 28px;
-      font-weight: 700;
-      margin-bottom: 6px;
-    }
+  .logout-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: transparent;
+    color: #ff6b6b;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
 
-    .topbar p {
-      color: rgba(255,255,255,0.6);
-      font-size: 14px;
-    }
+  .logout-btn:hover {
+    background: rgba(224, 85, 85, 0.08);
+    border-color: #e05555;
+    color: #ff7b7b;
+  }
 
-    .form-wrapper {
-      max-width: 900px;
-      background: #121726;
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 20px;
-      padding: 28px;
-    }
+  .main {
+    margin-left: 220px;
+    flex: 1;
+    padding: 32px 36px;
+    max-width: 980px;
+  }
 
-    .section-title {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 18px;
-      color: #ffffff;
-    }
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
 
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 18px;
-      margin-bottom: 22px;
-    }
+  .breadcrumb a {
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
 
-    .full-width {
-      grid-column: 1 / -1;
-    }
+  .breadcrumb a:hover { color: var(--text); }
 
-    .field-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+  .page-header { margin-bottom: 28px; }
+  .page-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  .page-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
-    label {
-      font-size: 13px;
-      color: rgba(255,255,255,0.72);
-      font-weight: 500;
-    }
+  .alert {
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    margin-bottom: 18px;
+    line-height: 1.5;
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.45s ease, transform 0.45s ease;
+  }
 
-    .required {
-      color: #ff7b7b;
-    }
+  .alert.fade-out {
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+  }
 
-    input,
-    select {
-      width: 100%;
-      background: #0f1422;
-      border: 1px solid rgba(255,255,255,0.08);
-      color: #ffffff;
-      border-radius: 14px;
-      padding: 14px 15px;
-      font-size: 14px;
-      outline: none;
-      transition: 0.2s;
-    }
+  .alert-info {
+    background: rgba(79,142,247,0.06);
+    border: 1px solid rgba(79,142,247,0.2);
+    color: #c9dbff;
+  }
 
-    input:focus,
-    select:focus {
-      border-color: #4a7dff;
-      box-shadow: 0 0 0 3px rgba(74,125,255,0.12);
-    }
+  .alert-error {
+    background: rgba(224,85,85,0.08);
+    border: 1px solid rgba(224,85,85,0.2);
+    color: #ffb5b5;
+  }
 
-    .student-fields,
-    .assessor-fields {
-      margin-top: 8px;
-      margin-bottom: 8px;
-    }
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
 
-    .note-box {
-      background: rgba(102,163,255,0.08);
-      border: 1px solid rgba(102,163,255,0.18);
-      color: #b9d2ff;
-      border-radius: 14px;
-      padding: 14px 16px;
-      font-size: 13px;
-      margin-bottom: 22px;
-      line-height: 1.5;
-    }
+  .form-section {
+    padding: 22px 24px;
+    border-bottom: 1px solid var(--border);
+  }
 
-    .error-box {
-      background: rgba(255,123,123,0.08);
-      border: 1px solid rgba(255,123,123,0.2);
-      color: #ffb0b0;
-      border-radius: 14px;
-      padding: 14px 16px;
-      font-size: 13px;
-      margin-bottom: 22px;
-      line-height: 1.5;
-    }
+  .form-section:last-of-type { border-bottom: none; }
 
-    .button-row {
-      display: flex;
-      gap: 14px;
-      margin-top: 28px;
-      flex-wrap: wrap;
-    }
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
 
-    .btn-primary,
-    .btn-secondary {
-      border: none;
-      border-radius: 14px;
-      padding: 14px 22px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: 0.2s;
-      text-decoration: none;
-    }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-    .btn-primary {
-      background: linear-gradient(135deg, #4a7dff, #6699ff);
-      color: white;
-    }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
 
-    .btn-primary:hover {
-      opacity: 0.93;
-      transform: translateY(-1px);
-    }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
 
-    .btn-secondary {
-      background: #1a2132;
-      color: #d5def7;
-      border: 1px solid rgba(255,255,255,0.08);
-    }
+  .field.full { grid-column: 1 / -1; }
 
-    .btn-secondary:hover {
-      background: #212a3f;
-    }
+  label {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
 
-    .helper-text {
-      font-size: 12px;
-      color: rgba(255,255,255,0.45);
-      margin-top: 4px;
-    }
+  .required-star { color: var(--danger); margin-left: 3px; }
 
-    @media (max-width: 1000px) {
-      .sidebar {
-        display: none;
-      }
+  input, select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13.5px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
 
-      .main {
-        padding: 24px;
-      }
-    }
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(79,142,247,0.12);
+  }
 
-    @media (max-width: 700px) {
-      .form-grid {
-        grid-template-columns: 1fr;
-      }
+  input::placeholder { color: var(--muted); }
 
-      .form-wrapper {
-        padding: 20px;
-      }
-    }
-  </style>
+  select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+
+  .helper-text {
+    font-size: 11.5px;
+    color: var(--muted);
+    min-height: 16px;
+    line-height: 1.45;
+  }
+
+  .role-panel {
+    display: none;
+    margin-top: 4px;
+  }
+
+  .role-panel.visible { display: block; }
+
+  .form-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 20px;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #3d7ef5; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--text); }
+
+  @media (max-width: 900px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 760px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; padding: 24px 18px; }
+  }
+</style>
 </head>
 <body>
 
-  <aside class="sidebar">
-    <div>
-      <div class="logo">IRMSYS</div>
+<nav class="sidebar">
+  <div>
+    <div class="logo">IRM<span>sys</span></div>
+    <div class="nav-label">Admin Panel</div>
+    <a class="nav-item" href="admin_dashboard.php">Dashboard</a>
+    <a class="nav-item active" href="user_management.php">User Management</a>
+    <a class="nav-item" href="internship_list.php">Internship Mgmt</a>
+    <a class="nav-item" href="view_results.php">Results</a>
+  </div>
 
-      <div class="nav-section">
-        <div class="nav-title">Admin Panel</div>
-        <a href="admin_dashboard.php" class="nav-item">Dashboard</a>
-        <a href="user_management.php" class="nav-item active">User Management</a>
-        <a href="internship_list.php" class="nav-item">Internship Mgmt</a>
-        <a href="view_results.php" class="nav-item">Results</a>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="avatar">AD</div>
+      <div class="user-name"><?= h($_SESSION['full_name'] ?? 'Admin User') ?></div>
+    </div>
+    <a href="logout.php" class="logout-btn">Log out</a>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="breadcrumb">
+    <a href="admin_dashboard.php">Dashboard</a>
+    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    <a href="user_management.php">User Management</a>
+    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    <span>Add User</span>
+  </div>
+
+  <div class="page-header">
+    <div class="page-title">Add User</div>
+    <div class="page-sub">Create a new student or assessor account</div>
+  </div>
+
+  <div class="alert alert-info">
+    Fill in the required details below. The role-specific section will update based on the selected user type.
+  </div>
+
+  <?php if ($error !== ''): ?>
+    <div class="alert alert-error" id="formErrorBox"><?= h($error) ?></div>
+  <?php else: ?>
+    <div class="alert alert-error" id="formErrorBox" style="display:none;"></div>
+  <?php endif; ?>
+
+  <form id="addUserForm" action="add_user.php" method="POST" class="form-card">
+    <div class="form-section">
+      <div class="section-label">Basic Information</div>
+      <div class="form-grid">
+        <div class="field">
+          <label for="full_name">Full Name <span class="required-star">*</span></label>
+          <input type="text" id="full_name" name="full_name" placeholder="Enter full name" value="<?= h($full_name) ?>" required>
+        </div>
+
+        <div class="field">
+          <label for="role">Role <span class="required-star">*</span></label>
+          <select id="role" name="role" required onchange="toggleRoleFields()">
+            <option value="">Select role</option>
+            <option value="student" <?= $role === 'student' ? 'selected' : '' ?>>Student</option>
+            <option value="assessor" <?= $role === 'assessor' ? 'selected' : '' ?>>Assessor</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="email">Email <span class="required-star">*</span></label>
+          <input type="email" id="email" name="email" placeholder="Enter email address" value="<?= h($email) ?>" required>
+        </div>
+
+        <div class="field">
+          <label for="status">Status <span class="required-star">*</span></label>
+          <select id="status" name="status" required>
+            <option value="active" <?= $status === 'active' ? 'selected' : '' ?>>Active</option>
+            <option value="inactive" <?= $status === 'inactive' ? 'selected' : '' ?>>Inactive</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="password">Password <span class="required-star">*</span></label>
+          <input type="password" id="password" name="password" placeholder="Enter password" required>
+          <div class="helper-text">Password must be at least 8 characters.</div>
+        </div>
+
+        <div class="field">
+          <label for="confirm_password">Confirm Password <span class="required-star">*</span></label>
+          <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter password" required>
+        </div>
       </div>
     </div>
 
-    <div class="admin-box">
-      <div class="admin-avatar"><?= h(getInitials($_SESSION['full_name'])) ?></div>
-      <div class="admin-info">
-        <div><?= h($_SESSION['full_name']) ?></div>
-        <small>Administrator</small>
-      </div>
-    </div>
-  </aside>
+    <div class="form-section">
+      <div class="section-label">Role Details</div>
 
-  <main class="main">
-    <div class="topbar">
-      <h1>Add User</h1>
-      <p>Create a new student or assessor account</p>
-    </div>
-
-    <div class="form-wrapper">
-      <div class="note-box">
-        Fill in the required details below. The fields shown will change based on the selected user role.
-      </div>
-
-      <?php if ($error !== ''): ?>
-        <div class="error-box" id="formErrorBox"><?= h($error) ?></div>
-      <?php else: ?>
-        <div class="error-box" id="formErrorBox" style="display:none;"></div>
-      <?php endif; ?>
-
-      <form id="addUserForm" action="add_user.php" method="POST">
-        <div class="section-title">Basic Information</div>
-
+      <div class="role-panel" id="studentFields">
         <div class="form-grid">
-          <div class="field-group">
-            <label for="full_name">Full Name <span class="required">*</span></label>
-            <input type="text" id="full_name" name="full_name" placeholder="Enter full name" value="<?= h($full_name) ?>" required>
+          <div class="field">
+            <label for="student_id">Student ID <span class="required-star">*</span></label>
+            <input type="text" id="student_id" name="student_id" pattern="^S\d{4}$" placeholder="e.g. S0021" value="<?= h($student_id) ?>" oninput="this.value = this.value.toUpperCase()">
+            <div class="helper-text">Student login username will be the same as the student ID.</div>
           </div>
 
-          <div class="field-group">
-            <label for="role">Role <span class="required">*</span></label>
-            <select id="role" name="role" required onchange="toggleRoleFields()">
-              <option value="">Select role</option>
-              <option value="student" <?= $role === 'student' ? 'selected' : '' ?>>Student</option>
-              <option value="assessor" <?= $role === 'assessor' ? 'selected' : '' ?>>Assessor</option>
+          <div class="field">
+            <label for="programme">Programme <span class="required-star">*</span></label>
+            <select id="programme" name="programme">
+              <option value="">Select programme</option>
+              <option value="Engineering" <?= $programme === 'Engineering' ? 'selected' : '' ?>>Engineering</option>
+              <option value="Arts and Design" <?= $programme === 'Arts and Design' ? 'selected' : '' ?>>Arts and Design</option>
+              <option value="Computer Science" <?= $programme === 'Computer Science' ? 'selected' : '' ?>>Computer Science</option>
+              <option value="Finance" <?= $programme === 'Finance' ? 'selected' : '' ?>>Finance</option>
             </select>
           </div>
+        </div>
+      </div>
 
-          <div class="field-group">
-            <label for="email">Email <span class="required">*</span></label>
-            <input type="email" id="email" name="email" placeholder="Enter email address" value="<?= h($email) ?>" required>
+      <div class="role-panel" id="assessorFields">
+        <div class="form-grid">
+          <div class="field">
+            <label for="assessor_username">Assessor Username <span class="required-star">*</span></label>
+            <input type="text" id="assessor_username" name="assessor_username" pattern="^as_\d{4}$" placeholder="e.g. as_1001" value="<?= h($assessor_username) ?>" oninput="this.value = this.value.toLowerCase()">
+            <div class="helper-text">Must follow the format as_XXXX.</div>
           </div>
 
-          <div class="field-group">
-            <label for="status">Status <span class="required">*</span></label>
-            <select id="status" name="status" required>
-              <option value="active" <?= $status === 'active' ? 'selected' : '' ?>>Active</option>
-              <option value="inactive" <?= $status === 'inactive' ? 'selected' : '' ?>>Inactive</option>
+          <div class="field">
+            <label for="assessor_programme">Programme <span class="required-star">*</span></label>
+            <select id="assessor_programme" name="assessor_programme">
+              <option value="">Select programme</option>
+              <option value="Engineering" <?= $assessor_programme === 'Engineering' ? 'selected' : '' ?>>Engineering</option>
+              <option value="Arts and Design" <?= $assessor_programme === 'Arts and Design' ? 'selected' : '' ?>>Arts and Design</option>
+              <option value="Computer Science" <?= $assessor_programme === 'Computer Science' ? 'selected' : '' ?>>Computer Science</option>
+              <option value="Finance" <?= $assessor_programme === 'Finance' ? 'selected' : '' ?>>Finance</option>
             </select>
           </div>
-
-          <div class="field-group">
-            <label for="password">Password <span class="required">*</span></label>
-            <input type="password" id="password" name="password" placeholder="Enter password" required>
-            <div class="helper-text">Password must be at least 8 characters.</div>
-          </div>
-
-          <div class="field-group">
-            <label for="confirm_password">Confirm Password <span class="required">*</span></label>
-            <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter password" required>
-          </div>
         </div>
-
-        <div class="section-title">Role Details</div>
-
-        <div class="student-fields" id="studentFields" style="display:none;">
-          <div class="form-grid">
-            <div class="field-group">
-              <label for="student_id">Student ID <span class="required">*</span></label>
-              <input type="text" id="student_id" name="student_id" pattern="^S\d{4}$" placeholder="e.g. S0021" value="<?= h($student_id) ?>" oninput="this.value = this.value.toUpperCase()">
-              <div class="helper-text">Student login username will be the same as the student ID.</div>
-            </div>
-
-            <div class="field-group">
-              <label for="programme">Programme <span class="required">*</span></label>
-              <select id="programme" name="programme">
-                <option value="Engineering" <?= $programme === 'Engineering' ? 'selected' : '' ?>>Engineering</option>
-                <option value="Arts and Design" <?= $programme === 'Arts and Design' ? 'selected' : '' ?>>Arts and Design</option>
-                <option value="Computer Science" <?= $programme === 'Computer Science' ? 'selected' : '' ?>>Computer Science</option>
-                <option value="Finance" <?= $programme === 'Finance' ? 'selected' : '' ?>>Finance</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div class="assessor-fields" id="assessorFields" style="display:none;">
-          <div class="form-grid">
-            <div class="field-group">
-              <label for="assessor_username">Assessor Username <span class="required">*</span></label>
-              <input type="text" id="assessor_username" name="assessor_username" pattern="^as_\d{4}$" placeholder="e.g. as_1001" value="<?= h($assessor_username) ?>" oninput="this.value = this.value.toLowerCase()">
-              <div class="helper-text">Must follow the format as_XXXX.</div>
-            </div>
-
-            <div class="field-group">
-              <label for="assessor_programme">Programme <span class="required">*</span></label>
-              <select id="assessor_programme" name="assessor_programme">
-                <option value="">Select programme</option>
-                <option value="Engineering" <?= $assessor_programme === 'Engineering' ? 'selected' : '' ?>>Engineering</option>
-                <option value="Arts and Design" <?= $assessor_programme === 'Arts and Design' ? 'selected' : '' ?>>Arts and Design</option>
-                <option value="Computer Science" <?= $assessor_programme === 'Computer Science' ? 'selected' : '' ?>>Computer Science</option>
-                <option value="Finance" <?= $assessor_programme === 'Finance' ? 'selected' : '' ?>>Finance</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div class="button-row">
-          <button type="submit" class="btn-primary">Save User</button>
-          <a href="user_management.php" class="btn-secondary">Cancel</a>
-        </div>
-      </form>
+      </div>
     </div>
-  </main>
 
-  <script>
-    function toggleRoleFields() {
-      const role = document.getElementById("role").value;
-      const studentFields = document.getElementById("studentFields");
-      const assessorFields = document.getElementById("assessorFields");
-      const studentId = document.getElementById("student_id");
-      const programme = document.getElementById("programme");
-      const assessorUsername = document.getElementById("assessor_username");
-      const assessorProgramme = document.getElementById("assessor_programme");
+    <div class="form-footer">
+      <a href="user_management.php" class="btn btn-ghost">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Cancel
+      </a>
+      <button type="submit" class="btn btn-primary">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        Save User
+      </button>
+    </div>
+  </form>
+</main>
 
-      studentFields.style.display = "none";
-      assessorFields.style.display = "none";
+<script>
+  function toggleRoleFields() {
+    const role = document.getElementById("role").value;
+    const studentFields = document.getElementById("studentFields");
+    const assessorFields = document.getElementById("assessorFields");
+    const studentId = document.getElementById("student_id");
+    const programme = document.getElementById("programme");
+    const assessorUsername = document.getElementById("assessor_username");
+    const assessorProgramme = document.getElementById("assessor_programme");
 
-      studentId.required = false;
-      programme.required = false;
-      assessorUsername.required = false;
-      assessorProgramme.required = false;
+    studentFields.classList.remove("visible");
+    assessorFields.classList.remove("visible");
 
-      if (role === "student") {
-        studentFields.style.display = "block";
-        studentId.required = true;
-        programme.required = true;
-      } else if (role === "assessor") {
-        assessorFields.style.display = "block";
-        assessorUsername.required = true;
-        assessorProgramme.required = true;
-      }
+    studentId.required = false;
+    programme.required = false;
+    assessorUsername.required = false;
+    assessorProgramme.required = false;
+
+    if (role === "student") {
+      studentFields.classList.add("visible");
+      studentId.required = true;
+      programme.required = true;
+    } else if (role === "assessor") {
+      assessorFields.classList.add("visible");
+      assessorUsername.required = true;
+      assessorProgramme.required = true;
+    }
+  }
+
+  function showFormError(message) {
+    const box = document.getElementById("formErrorBox");
+    const passwordInput = document.getElementById("password");
+    const confirmPasswordInput = document.getElementById("confirm_password");
+
+    box.classList.remove("fade-out");
+    box.textContent = message;
+    box.style.display = "block";
+    box.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    if (passwordInput) passwordInput.value = "";
+    if (confirmPasswordInput) confirmPasswordInput.value = "";
+
+    clearTimeout(box.hideTimer);
+    clearTimeout(box.removeTimer);
+
+    box.hideTimer = setTimeout(() => {
+      box.classList.add("fade-out");
+      box.removeTimer = setTimeout(() => {
+        box.style.display = "none";
+        box.classList.remove("fade-out");
+        box.textContent = "";
+      }, 450);
+    }, 1500);
+  }
+
+  toggleRoleFields();
+
+  document.getElementById("addUserForm").addEventListener("submit", function(e) {
+    const role = document.getElementById("role").value;
+    const password = document.getElementById("password").value;
+    const confirmPassword = document.getElementById("confirm_password").value;
+
+    if (password.length < 8) {
+      e.preventDefault();
+      showFormError("Password must be at least 8 characters.");
+      return;
     }
 
-    function showFormError(message) {
-      const box = document.getElementById("formErrorBox");
-      box.textContent = message;
-      box.style.display = "block";
-      box.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (password !== confirmPassword) {
+      e.preventDefault();
+      showFormError("Passwords do not match.");
+      return;
     }
 
-    toggleRoleFields();
+    if (role === "student") {
+      const studentId = document.getElementById("student_id").value.trim();
+      const programme = document.getElementById("programme").value.trim();
 
-    document.getElementById("addUserForm").addEventListener("submit", function(e) {
-      const role = document.getElementById("role").value;
-      const password = document.getElementById("password").value;
-      const confirmPassword = document.getElementById("confirm_password").value;
-
-      if (password.length < 8) {
+      if (!studentId || !programme) {
         e.preventDefault();
-        showFormError("Password must be at least 8 characters.");
+        showFormError("Please complete all student fields.");
         return;
       }
 
-      if (password !== confirmPassword) {
+      if (!/^S\d{4}$/.test(studentId)) {
         e.preventDefault();
-        showFormError("Passwords do not match.");
+        showFormError("Student ID must follow the format S0021.");
+        return;
+      }
+    }
+
+    if (role === "assessor") {
+      const assessorUsername = document.getElementById("assessor_username").value.trim();
+      const assessorProgramme = document.getElementById("assessor_programme").value.trim();
+
+      if (!assessorUsername || !assessorProgramme) {
+        e.preventDefault();
+        showFormError("Please complete all assessor fields.");
         return;
       }
 
-      if (role === "student") {
-        const studentId = document.getElementById("student_id").value.trim();
-        const programme = document.getElementById("programme").value.trim();
-
-        if (!studentId || !programme) {
-          e.preventDefault();
-          showFormError("Please complete all student fields.");
-          return;
-        }
-
-        if (!/^S\d{4}$/.test(studentId)) {
-          e.preventDefault();
-          showFormError("Student ID must follow the format S0021.");
-          return;
-        }
+      if (!/^as_\d{4}$/.test(assessorUsername)) {
+        e.preventDefault();
+        showFormError("Assessor username must follow the format as_1001.");
+        return;
       }
-
-      if (role === "assessor") {
-        const assessorUsername = document.getElementById("assessor_username").value.trim();
-        const assessorProgramme = document.getElementById("assessor_programme").value.trim();
-
-        if (!assessorUsername || !assessorProgramme) {
-          e.preventDefault();
-          showFormError("Please complete all assessor fields.");
-          return;
-        }
-
-        if (!/^as_\d{4}$/.test(assessorUsername)) {
-          e.preventDefault();
-          showFormError("Assessor username must follow the format as_1001.");
-          return;
-        }
-      }
-    });
-  </script>
+    }
+  });
+</script>
 </body>
 </html>

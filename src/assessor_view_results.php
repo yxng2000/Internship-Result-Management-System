@@ -1,13 +1,13 @@
 <?php
 session_start();
 require_once 'auth.php';
-requireRole('admin');
+requireRole('assessor');
 require_once 'config.php';
 
 $conn = getConnection();
 
 $user_id = (int)($_SESSION['user_id'] ?? 0);
-$full_name = $_SESSION['full_name'] ?? 'Admin User';
+$full_name = $_SESSION['full_name'] ?? 'Assessor User';
 
 function e($value) {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -31,7 +31,7 @@ function get_initials($name) {
 }
 
 if ($user_id > 0) {
-    $stmt = $conn->prepare("SELECT full_name FROM users WHERE user_id = ? AND role = 'admin' LIMIT 1");
+    $stmt = $conn->prepare("SELECT full_name FROM users WHERE user_id = ? AND role = 'assessor' LIMIT 1");
     if ($stmt) {
         $stmt->bind_param("i", $user_id);
         if ($stmt->execute()) {
@@ -53,7 +53,7 @@ $avatar = get_initials($full_name);
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>View Results — Internship Management</title>
+<title>My Students' Results — Assessor Panel</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -148,13 +148,15 @@ $avatar = get_initials($full_name);
     color: #ff7b7b;
   }
 
-  .main { margin-left: 220px; flex: 1; padding: 32px 36px; width: calc(100vw - 220px); max-width: none; }
+  .main { margin-left: 220px; flex: 1; padding: 32px 36px; max-width: 1100px; }
 
   .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 28px; }
   .page-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
   .page-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
   .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: var(--radius); font-family: var(--font); font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; text-decoration: none; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #3d7ef5; }
   .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
   .btn-ghost:hover { background: var(--border); }
   .btn-sm { padding: 6px 12px; font-size: 12px; }
@@ -257,26 +259,19 @@ $avatar = get_initials($full_name);
 
 <nav class="sidebar">
   <div class="logo">IRM<span>sys</span></div>
-  <div class="nav-label">Admin Panel</div>
+  <div class="nav-label">Assessor Panel</div>
 
-  <a class="nav-item" href="admin_dashboard.php">
+  <a class="nav-item" href="assessor_dashboard.php">
     <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
     Dashboard
   </a>
-
-  <a class="nav-item" href="user_management.php">
-    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-    User Management
+  <a class="nav-item" href="result_entry.php">
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    Enter Results
   </a>
-
-  <a class="nav-item" href="internship_list.php">
-    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-    Internship Mgmt
-  </a>
-
-  <a class="nav-item active" href="view_results.php">
+  <a class="nav-item active" href="assessor_view_results.php">
     <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-    Results
+    View Results
   </a>
 
   <div class="sidebar-footer">
@@ -292,18 +287,21 @@ $avatar = get_initials($full_name);
 
   <div class="page-header">
     <div>
-      <div class="page-title">All Assessment Results</div>
-      <div class="page-sub">View and filter all student internship assessment scores</div>
+      <div class="page-title">My Students' Results</div>
+      <div class="page-sub">View and filter assessment scores for your assigned students</div>
     </div>
-    <button class="btn btn-ghost btn-sm" onclick="exportCSV()">
-      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Export CSV
-    </button>
+
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export CSV
+      </button>
+    </div>
   </div>
 
   <div class="stats-row">
     <div class="stat-card">
-      <div class="stat-label">Total Students</div>
+      <div class="stat-label">My Students</div>
       <div class="stat-value blue" id="stat-total">0</div>
     </div>
     <div class="stat-card">
@@ -325,9 +323,6 @@ $avatar = get_initials($full_name);
       <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input class="search-input" type="text" id="searchInput" placeholder="Search by student ID or name…">
     </div>
-    <select class="filter-select" id="assessorFilter">
-      <option value="all">All Assessors</option>
-    </select>
     <select class="filter-select" id="statusFilter">
       <option value="all">All Status</option>
       <option value="assessed">Assessed</option>
@@ -349,7 +344,6 @@ $avatar = get_initials($full_name);
         <tr>
           <th>Student</th>
           <th>Programme</th>
-          <th>Assessor</th>
           <th>Company</th>
           <th>Total Score</th>
           <th>Grade</th>
@@ -372,7 +366,13 @@ $avatar = get_initials($full_name);
   <div class="modal">
     <div class="modal-header">
       <div class="modal-title">Assessment Breakdown</div>
-      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div style="display: flex; gap: 16px; align-items: center;">
+        <button id="modalEditBtn" class="btn btn-primary btn-sm" style="display: none;">
+          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Edit Score
+        </button>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
     </div>
     <div class="modal-body">
 
@@ -391,7 +391,7 @@ $avatar = get_initials($full_name);
       <div id="m-breakdown"></div>
 
       <div id="m-comments-wrap" style="display:none;">
-        <div class="comments-label" style="margin-top:20px;">Assessor Comments</div>
+        <div class="comments-label" style="margin-top:20px;">Your Comments</div>
         <div class="comments-box" id="m-comments"></div>
       </div>
     </div>
@@ -407,13 +407,13 @@ $avatar = get_initials($full_name);
 
   const CRITERIA_META = [
     { key: 'undertaking_tasks',     label: 'Undertaking Tasks',     max: 10, weight: '10%' },
-    { key: 'health_safety',         label: 'Health & Safety',       max: 10, weight: '10%' },
-    { key: 'theoretical_knowledge', label: 'Theoretical Knowledge', max: 10, weight: '10%' },
-    { key: 'report_presentation',   label: 'Report & Presentation', max: 15, weight: '15%' },
-    { key: 'clarity_language',      label: 'Clarity & Language',    max: 10, weight: '10%' },
-    { key: 'lifelong_learning',     label: 'Lifelong Learning',     max: 15, weight: '15%' },
-    { key: 'project_management',    label: 'Project Management',    max: 15, weight: '15%' },
-    { key: 'time_management',       label: 'Time Management',       max: 15, weight: '15%' },
+    { key: 'health_safety',         label: 'Health & Safety',        max: 10, weight: '10%' },
+    { key: 'theoretical_knowledge', label: 'Theoretical Knowledge',  max: 10, weight: '10%' },
+    { key: 'report_presentation',   label: 'Report & Presentation',  max: 15, weight: '15%' },
+    { key: 'clarity_language',      label: 'Clarity & Language',     max: 10, weight: '10%' },
+    { key: 'lifelong_learning',     label: 'Lifelong Learning',      max: 15, weight: '15%' },
+    { key: 'project_management',    label: 'Project Management',     max: 15, weight: '15%' },
+    { key: 'time_management',       label: 'Time Management',        max: 15, weight: '15%' },
   ];
 
   function getGrade(score) {
@@ -441,25 +441,14 @@ $avatar = get_initials($full_name);
   }
 
   function getInitials(name) {
-    if (!name) return '--';
     return name.split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase();
   }
 
   function loadResults() {
-    fetch('get_results.php')
+    fetch('get_assessor_results.php')
       .then(r => r.json())
       .then(result => {
         data = result.records || [];
-
-        const assessors = [...new Set(data.map(r => r.assessor_name).filter(Boolean))];
-        const af = document.getElementById('assessorFilter');
-        assessors.forEach(a => {
-          const o = document.createElement('option');
-          o.value = a;
-          o.textContent = a;
-          af.appendChild(o);
-        });
-
         updateStats();
         render();
       })
@@ -468,30 +457,26 @@ $avatar = get_initials($full_name);
 
   function updateStats() {
     const assessed = data.filter(r => r.total_score !== null && r.total_score !== '');
-    const scores = assessed.map(r => parseFloat(r.total_score)).filter(s => !isNaN(s));
-    const avg = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '—';
+    const scores   = assessed.map(r => parseFloat(r.total_score)).filter(s => !isNaN(s));
+    const avg      = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2) : '—';
 
-    document.getElementById('stat-total').textContent = data.length;
+    document.getElementById('stat-total').textContent    = data.length;
     document.getElementById('stat-assessed').textContent = assessed.length;
-    document.getElementById('stat-pending').textContent = data.length - assessed.length;
-    document.getElementById('stat-avg').textContent = avg;
+    document.getElementById('stat-pending').textContent  = data.length - assessed.length;
+    document.getElementById('stat-avg').textContent      = avg;
   }
 
   function filteredData() {
     const q  = document.getElementById('searchInput').value.toLowerCase();
-    const af = document.getElementById('assessorFilter').value;
     const sf = document.getElementById('statusFilter').value;
     const gf = document.getElementById('gradeFilter').value;
 
     return data.filter(r => {
-      const studentId = (r.student_id || '').toLowerCase();
-      const fullName = (r.full_name || '').toLowerCase();
-      const matchQ = studentId.includes(q) || fullName.includes(q);
-      const matchA = af === 'all' || r.assessor_name === af;
+      const matchQ  = r.student_id.toLowerCase().includes(q) || r.full_name.toLowerCase().includes(q);
       const assessed = r.total_score !== null && r.total_score !== '';
-      const matchS = sf === 'all' || (sf === 'assessed' ? assessed : !assessed);
-      const matchG = gf === 'all' || getGrade(r.total_score) === gf;
-      return matchQ && matchA && matchS && matchG;
+      const matchS  = sf === 'all' || (sf === 'assessed' ? assessed : !assessed);
+      const matchG  = gf === 'all' || getGrade(r.total_score) === gf;
+      return matchQ && matchS && matchG;
     });
   }
 
@@ -510,25 +495,22 @@ $avatar = get_initials($full_name);
     } else {
       document.getElementById('noResults').style.display = 'none';
       tbody.innerHTML = slice.map(r => {
-        const assessed = r.total_score !== null && r.total_score !== '';
-        const score = assessed ? parseFloat(r.total_score).toFixed(2) : null;
-        const grade = getGrade(r.total_score);
+        const assessed  = r.total_score !== null && r.total_score !== '';
+        const score     = assessed ? parseFloat(r.total_score).toFixed(1) : null;
+        const grade     = getGrade(r.total_score);
         const scoreClass = getScoreClass(r.total_score);
-        const barPct = score ? Math.min(parseFloat(score), 100) : 0;
-        const barColor = getBarColor(barPct);
-
-        const safeRecord = JSON.stringify(r).replace(/'/g, "\\'");
+        const barPct    = score ? Math.min(parseFloat(score), 100) : 0;
+        const barColor  = getBarColor(barPct);
 
         return `
-          <tr onclick='openModal(${safeRecord})'>
+          <tr onclick='openModal(${JSON.stringify(r).replace(/'/g, "\\'")})'>
             <td>
               <div class="student-cell">
-                <span>${r.full_name || '—'}</span>
-                <span class="student-id">${r.student_id || '—'}</span>
+                <span>${r.full_name}</span>
+                <span class="student-id">${r.student_id}</span>
               </div>
             </td>
-            <td>${r.programme || '—'}</td>
-            <td>${r.assessor_name || '<span style="color:var(--muted);font-size:12px">—</span>'}</td>
+            <td>${r.programme}</td>
             <td>${r.company_name || '<span style="color:var(--muted);font-size:12px">—</span>'}</td>
             <td>
               ${assessed
@@ -550,7 +532,7 @@ $avatar = get_initials($full_name);
             </td>
             <td>
               <div class="actions" onclick="event.stopPropagation()">
-                <button class="icon-btn" title="View detail" onclick='openModal(${safeRecord})'>
+                <button class="icon-btn" title="View detail" onclick='openModal(${JSON.stringify(r).replace(/'/g, "\\'")})'>
                   <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
               </div>
@@ -577,22 +559,34 @@ $avatar = get_initials($full_name);
   function openModal(r) {
     const assessed = r.total_score !== null && r.total_score !== '';
 
+    const modalEditBtn = document.getElementById('modalEditBtn');
+    modalEditBtn.style.display = 'inline-flex';
+    modalEditBtn.onclick = () => {
+      window.location.href = `result_entry.php?edit=${r.internship_id}`;
+    };
+
+    if (assessed) {
+      modalEditBtn.innerHTML = `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit Score`;
+    } else {
+      modalEditBtn.innerHTML = `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Enter Score`;
+    }
+
     document.getElementById('m-avatar').textContent = getInitials(r.full_name);
-    document.getElementById('m-name').textContent = r.full_name || '—';
-    document.getElementById('m-meta').textContent = `${r.student_id || '—'} · ${r.programme || '—'} · ${r.company_name || '—'}`;
+    document.getElementById('m-name').textContent   = r.full_name;
+    document.getElementById('m-meta').textContent   = `${r.student_id} · ${r.programme} · ${r.company_name || '—'}`;
 
     const totalEl = document.getElementById('m-total');
     const totalLabelEl = document.querySelector('.modal-total-label');
 
     if (assessed) {
-      const score = parseFloat(r.total_score).toFixed(2);
+      const score = parseFloat(r.total_score).toFixed(1);
       const grade = getGrade(r.total_score);
       totalEl.textContent = score;
-      totalEl.className = 'modal-total-val ' + getScoreClass(r.total_score);
-      totalLabelEl.textContent = `/ 100  ·  Grade ${grade}`;
+      totalEl.className   = 'modal-total-val ' + getScoreClass(r.total_score);
+      totalLabelEl.textContent = `/ 100.0  ·  Grade ${grade}`;
     } else {
       totalEl.textContent = '—';
-      totalEl.className = 'modal-total-val score-none';
+      totalEl.className   = 'modal-total-val score-none';
       totalLabelEl.textContent = 'Not yet assessed';
     }
 
@@ -617,7 +611,7 @@ $avatar = get_initials($full_name);
         `;
       }).join('');
     } else {
-      breakdownEl.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">No assessment has been submitted for this student yet.</div>';
+      breakdownEl.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">You have not submitted an assessment for this student yet.</div>';
     }
 
     const commentsWrap = document.getElementById('m-comments-wrap');
@@ -648,7 +642,7 @@ $avatar = get_initials($full_name);
 
   function exportCSV() {
     const rows = filteredData();
-    const header = ['Student ID', 'Name', 'Programme', 'Assessor', 'Company',
+    const header = ['Student ID', 'Name', 'Programme', 'Company',
       'Undertaking', 'Health & Safety', 'Theoretical', 'Report',
       'Clarity', 'Lifelong', 'Project Mgmt', 'Time Mgmt', 'Total', 'Grade'];
 
@@ -658,7 +652,6 @@ $avatar = get_initials($full_name);
       esc(r.student_id),
       esc(r.full_name),
       esc(r.programme),
-      esc(r.assessor_name || ''),
       esc(r.company_name || ''),
       esc(r.undertaking_tasks || ''),
       esc(r.health_safety || ''),
@@ -675,15 +668,14 @@ $avatar = get_initials($full_name);
     const csv = [header.map(esc).join(','), ...lines].join('\n');
     const a = document.createElement('a');
     a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-    a.download = 'assessment_results.csv';
+    a.download = 'my_assessment_results.csv';
     a.click();
     showToast('CSV exported.');
   }
 
-  document.getElementById('searchInput').addEventListener('input', () => { currentPage = 1; render(); });
-  document.getElementById('assessorFilter').addEventListener('change', () => { currentPage = 1; render(); });
+  document.getElementById('searchInput').addEventListener('input',  () => { currentPage = 1; render(); });
   document.getElementById('statusFilter').addEventListener('change', () => { currentPage = 1; render(); });
-  document.getElementById('gradeFilter').addEventListener('change', () => { currentPage = 1; render(); });
+  document.getElementById('gradeFilter').addEventListener('change',  () => { currentPage = 1; render(); });
 
   loadResults();
 </script>

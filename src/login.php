@@ -91,182 +91,196 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login | IRMSYS</title>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    * {
+    *, *::before, *::after {
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
-      box-sizing: border-box;
-      font-family: 'Syne', sans-serif;
+    }
+
+    :root {
+      --bg:        #0e0f13;
+      --surface:   #16181f;
+      --surface2:  #1e2029;
+      --border:    #2a2d38;
+      --accent:    #4f8ef7;
+      --accent2:   #7c6af7;
+      --text:      #e8eaf0;
+      --muted:     #6b7080;
+      --danger:    #e05555;
+      --radius:    10px;
+      --font:      'Syne', sans-serif;
+      --mono:      'DM Mono', monospace;
     }
 
     body {
-      background: #0a0c14;
-      color: #ffffff;
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .topbar {
-      height: 72px;
-      display: flex;
-      align-items: center;
-      padding: 0 32px;
-      background: #111523;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-
-    .logo {
-      font-size: 18px;
-      font-weight: 700;
-      color: #66a3ff;
-      letter-spacing: 0.5px;
-    }
-
-    .page-wrapper {
-      flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 32px;
+      background:
+        radial-gradient(circle at top left, rgba(79,142,247,0.08), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(124,106,247,0.08), transparent 30%),
+        var(--bg);
+      color: var(--text);
+      font-family: var(--font);
     }
 
-    .login-card {
+    .login-shell {
       width: 100%;
-      max-width: 460px;
-      background: #121726;
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 20px;
-      padding: 30px;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.28);
+      max-width: 440px;
     }
 
-    .login-header {
-      margin-bottom: 24px;
+    .login-brand {
+      text-align: center;
+      margin-bottom: 18px;
     }
 
-    .login-header h1 {
-      font-size: 28px;
+    .login-brand .system {
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
       font-weight: 700;
       margin-bottom: 8px;
     }
 
-    .login-header p {
-      color: rgba(255,255,255,0.6);
-      font-size: 14px;
-      line-height: 1.5;
+    .login-brand h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
     }
 
-    .note-box {
-      background: rgba(102,163,255,0.08);
-      border: 1px solid rgba(102,163,255,0.18);
-      color: #b9d2ff;
-      border-radius: 14px;
-      padding: 14px 16px;
+    .login-brand p {
       font-size: 13px;
-      margin-bottom: 20px;
-      line-height: 1.5;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 26px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+    }
+
+    .helper-box,
+    .error-box {
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.55;
+      margin-bottom: 16px;
+    }
+
+    .helper-box {
+      background: rgba(79,142,247,0.08);
+      border: 1px solid rgba(79,142,247,0.18);
+      color: #bfd3ff;
     }
 
     .error-box {
-      background: rgba(255, 123, 123, 0.08);
-      border: 1px solid rgba(255, 123, 123, 0.22);
-      color: #ff9c9c;
-      border-radius: 14px;
-      padding: 14px 16px;
-      font-size: 13px;
-      margin-bottom: 20px;
-      line-height: 1.5;
+      background: rgba(224,85,85,0.08);
+      border: 1px solid rgba(224,85,85,0.22);
+      color: #ffaaaa;
     }
 
     .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 18px;
+      margin-bottom: 16px;
     }
 
     label {
-      font-size: 13px;
-      color: rgba(255,255,255,0.72);
-      font-weight: 500;
+      display: block;
+      margin-bottom: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
     }
 
     input {
       width: 100%;
-      background: #0f1422;
-      border: 1px solid rgba(255,255,255,0.08);
-      color: #ffffff;
-      border-radius: 14px;
-      padding: 14px 15px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font);
       font-size: 14px;
+      padding: 12px 14px;
       outline: none;
-      transition: 0.2s;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    }
+
+    input::placeholder {
+      color: var(--muted);
     }
 
     input:focus {
-      border-color: #4a7dff;
-      box-shadow: 0 0 0 3px rgba(74,125,255,0.12);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79,142,247,0.12);
+      background: #202330;
     }
 
-    .btn-primary {
+    .login-btn {
       width: 100%;
       border: none;
-      border-radius: 14px;
-      padding: 14px 22px;
-      font-size: 15px;
+      border-radius: var(--radius);
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font);
+      font-size: 13.5px;
       font-weight: 600;
+      padding: 12px 16px;
       cursor: pointer;
-      transition: 0.2s;
-      background: linear-gradient(135deg, #4a7dff, #6699ff);
-      color: white;
-      margin-top: 8px;
+      transition: all 0.15s;
+      margin-top: 4px;
     }
 
-    .btn-primary:hover {
-      opacity: 0.93;
+    .login-btn:hover {
+      background: #3d7ef5;
       transform: translateY(-1px);
     }
 
     .login-footer {
-      margin-top: 18px;
-      color: rgba(255,255,255,0.45);
-      font-size: 12px;
+      margin-top: 16px;
       text-align: center;
-      line-height: 1.5;
+      font-size: 11.5px;
+      color: var(--muted);
+      font-family: var(--mono);
+      letter-spacing: 0.04em;
     }
 
-    @media (max-width: 600px) {
-      .topbar {
-        padding: 0 20px;
-      }
-
-      .page-wrapper {
+    @media (max-width: 520px) {
+      body {
         padding: 20px;
       }
 
       .login-card {
-        padding: 22px;
+        padding: 20px;
       }
 
-      .login-header h1 {
+      .login-brand h1 {
         font-size: 24px;
       }
     }
   </style>
 </head>
 <body>
+  <div class="login-shell">
+    <div class="login-brand">
+      <div class="system">IRMSYS</div>
+      <h1>Welcome back</h1>
+      <p>Sign in to continue to the Internship Result Management System.</p>
+    </div>
 
-  <header class="topbar">
-    <div class="logo">IRMSYS</div>
-  </header>
-
-  <main class="page-wrapper">
     <div class="login-card">
-      <div class="login-header">
-        <h1>Login</h1>
-        <p>Sign in to access the Internship Result Management System.</p>
+      <div class="helper-box">
+        Use your assigned username and password to access the correct dashboard.
       </div>
 
       <?php if (!empty($error)): ?>
@@ -275,10 +289,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       <form method="POST" action="login.php">
         <div class="form-group">
-          <label for="login_input">Username</label>
+          <label for="username">Username</label>
           <input
             type="text"
-            id="login_input"
+            id="username"
             name="username"
             placeholder="Enter your username"
             value="<?= htmlspecialchars($_POST['username'] ?? '') ?>"
@@ -297,14 +311,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           >
         </div>
 
-        <button type="submit" class="btn-primary">Login</button>
+        <button type="submit" class="login-btn">Sign In</button>
       </form>
 
-      <div class="login-footer">
-        Internship Result Management System
-      </div>
+      <div class="login-footer">Secure access • Internship Result Management</div>
     </div>
-  </main>
-
+  </div>
 </body>
 </html>

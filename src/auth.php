@@ -1,8 +1,10 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 function requireLogin() {
-    if (!isset($_SESSION['user_id'])) {
+    if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
         header("Location: login.php");
         exit();
     }
@@ -11,7 +13,7 @@ function requireLogin() {
 function requireRole($role) {
     requireLogin();
 
-    if (!isset($_SESSION['role']) || $_SESSION['role'] !== $role) {
+    if ($_SESSION['role'] !== $role) {
         header("Location: login.php");
         exit();
     }

@@ -5,7 +5,7 @@ header('Content-Type: application/json');
 require_once 'config.php';
 
 $conn = getConnection();
-$assessor_id = 4; // Hardcoded to Dr. Amir (User ID 4)
+$assessor_id = 2; // Hardcoded for now
 
 $query = "
     SELECT 

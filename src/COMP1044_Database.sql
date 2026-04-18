@@ -79,6 +79,22 @@ CREATE TABLE assessments (
     FOREIGN KEY (internship_id) REFERENCES internships(internship_id) ON DELETE CASCADE
 );
 
+
+
+-- ------------------------------------------------------------
+-- 5. Activity Logs
+-- ------------------------------------------------------------
+CREATE TABLE activity_logs (
+    log_id       INT AUTO_INCREMENT PRIMARY KEY,
+    action_type  VARCHAR(50) NOT NULL,
+    target_type  VARCHAR(50) NOT NULL,
+    target_id    INT DEFAULT NULL,
+    title        VARCHAR(255) NOT NULL,
+    description  TEXT NOT NULL,
+    link_url     VARCHAR(255) DEFAULT NULL,
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ------------------------------------------------------------
 -- Sample Data
 -- ------------------------------------------------------------
