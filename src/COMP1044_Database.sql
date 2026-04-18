@@ -73,12 +73,10 @@ CREATE TABLE assessments (
     time_management             DECIMAL(5,2) DEFAULT NULL,   -- 15%
     total_score                 DECIMAL(5,2) DEFAULT NULL,   -- auto-calculated
     comments                    TEXT,
-    assessed_by                 INT DEFAULT NULL,
     submitted_at                DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at                  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (internship_id) REFERENCES internships(internship_id) ON DELETE CASCADE,
-    FOREIGN KEY (assessed_by) REFERENCES users(user_id) ON DELETE SET NULL
+    FOREIGN KEY (internship_id) REFERENCES internships(internship_id) ON DELETE CASCADE
 );
 
 -- ------------------------------------------------------------
