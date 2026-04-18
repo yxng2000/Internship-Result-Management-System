@@ -14,19 +14,15 @@ function e($value) {
 }
 
 function get_initials($name) {
-    $name = trim((string)$name);
-    if ($name === '') return 'AU';
-
-    $parts = preg_split('/\s+/', $name);
+    $name = preg_replace('/\b(Dr|Prof|Mr|Mrs|Ms|Miss)\.?\s*/i', '', trim($name));
+    $parts = preg_split('/\s+/', trim($name));
     $initials = '';
-
     foreach ($parts as $part) {
         if ($part !== '') {
             $initials .= strtoupper(substr($part, 0, 1));
         }
         if (strlen($initials) >= 2) break;
     }
-
     return $initials ?: 'AU';
 }
 
