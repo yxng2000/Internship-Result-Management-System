@@ -1,5 +1,6 @@
 -- ============================================================
 --  COMP1044 — Internship Result Management System
+--  Updated for lecturer + supervisor separation
 --  Database: comp1044_irms
 -- ============================================================
 
@@ -11,7 +12,7 @@ USE comp1044_irms;
 -- 1. Students
 -- ------------------------------------------------------------
 CREATE TABLE students (
-    student_id  VARCHAR(10)  PRIMARY KEY,       -- e.g. S0025
+    student_id  VARCHAR(10)  PRIMARY KEY,
     full_name   VARCHAR(100) NOT NULL,
     programme   ENUM('Engineering','Arts and Design','Computer Science','Finance') NOT NULL,
     email       VARCHAR(100) NOT NULL UNIQUE,
@@ -20,30 +21,35 @@ CREATE TABLE students (
 );
 
 -- ------------------------------------------------------------
--- 2. Users 
+-- 2. Users
+--    - lecturer: belongs to programme
+--    - supervisor: belongs to company
 -- ------------------------------------------------------------
 CREATE TABLE users (
-    user_id     INT AUTO_INCREMENT PRIMARY KEY,
-    username    VARCHAR(50)  NOT NULL UNIQUE,
-    password    VARCHAR(255) NOT NULL,          -- store hashed password
-    full_name   VARCHAR(100) NOT NULL,
-    role        ENUM('admin','assessor','student') NOT NULL,
-    programme   ENUM('Engineering','Arts and Design','Computer Science','Finance') DEFAULT NULL,
-    email       VARCHAR(100) NOT NULL UNIQUE,
-    student_id  VARCHAR(10) DEFAULT NULL,
-    status      ENUM('active','inactive') DEFAULT 'active',
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    user_id       INT AUTO_INCREMENT PRIMARY KEY,
+    username      VARCHAR(50)  NOT NULL UNIQUE,
+    password      VARCHAR(255) NOT NULL,
+    full_name     VARCHAR(100) NOT NULL,
+    role          ENUM('admin','lecturer','supervisor','student') NOT NULL,
+    programme     ENUM('Engineering','Arts and Design','Computer Science','Finance') DEFAULT NULL,
+    company_name  VARCHAR(150) DEFAULT NULL,
+    email         VARCHAR(100) NOT NULL UNIQUE,
+    student_id    VARCHAR(10) DEFAULT NULL,
+    status        ENUM('active','inactive') DEFAULT 'active',
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (student_id) REFERENCES students(student_id)  ON DELETE SET NULL
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE SET NULL
 );
 
 -- ------------------------------------------------------------
 -- 3. Internships
+--    Split old assessor_id into lecturer_id + supervisor_id
 -- ------------------------------------------------------------
 CREATE TABLE internships (
     internship_id   INT AUTO_INCREMENT PRIMARY KEY,
     student_id      VARCHAR(10) NOT NULL UNIQUE,
-    assessor_id     INT DEFAULT NULL,
+    lecturer_id     INT DEFAULT NULL,
+    supervisor_id   INT DEFAULT NULL,
     company_name    VARCHAR(150) DEFAULT NULL,
     industry        VARCHAR(100) DEFAULT NULL,
     start_date      DATE DEFAULT NULL,
@@ -53,8 +59,9 @@ CREATE TABLE internships (
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (student_id)  REFERENCES students(student_id)  ON DELETE CASCADE,
-    FOREIGN KEY (assessor_id) REFERENCES users(user_id)        ON DELETE SET NULL
+    FOREIGN KEY (student_id)    REFERENCES students(student_id) ON DELETE CASCADE,
+    FOREIGN KEY (lecturer_id)   REFERENCES users(user_id) ON DELETE SET NULL,
+    FOREIGN KEY (supervisor_id) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
 -- ------------------------------------------------------------
@@ -78,8 +85,6 @@ CREATE TABLE assessments (
 
     FOREIGN KEY (internship_id) REFERENCES internships(internship_id) ON DELETE CASCADE
 );
-
-
 
 -- ------------------------------------------------------------
 -- 5. Activity Logs
@@ -127,73 +132,83 @@ INSERT INTO students (student_id, full_name, programme, email, status) VALUES
 ('S0044', 'Goh Jun Hao',      'Engineering',      'junhao@student.edu.my', 'active'),
 ('S0045', 'Adam Lee',         'Computer Science', 'adam@student.edu.my', 'active');
 
--- Users (passwords are MD5 hashed — use password_hash() in real PHP)
-INSERT INTO users (username, password, full_name, role, programme, email, student_id, status) VALUES
-('admin',   MD5('admin123'),   'Admin User',       'admin',    NULL,                 'admin@university.edu.my', NULL, 'active'),
+-- Users (still using MD5 to stay compatible with your current project flow)
+-- user_id mapping after insert:
+-- 1  = admin
+-- 2-13 = lecturers
+-- 14-15 = supervisors
+-- 16+ = students
+INSERT INTO users (username, password, full_name, role, programme, company_name, email, student_id, status) VALUES
+('admin',    MD5('admin123'),   'Admin User',       'admin',      NULL,               NULL,              'admin@university.edu.my', NULL, 'active'),
 
-('as_1001', MD5('lina123'),    'Dr. Lina',         'assessor', 'Computer Science',   'lina@university.edu.my', NULL, 'active'),
-('as_1002', MD5('raj123'),     'Prof. Raj',        'assessor', 'Computer Science',   'raj@university.edu.my', NULL, 'active'),
-('as_1003', MD5('amir123'),    'Dr. Amir',         'assessor', 'Computer Science',   'amir@university.edu.my', NULL, 'active'),
-('as_1004', MD5('amin123'),    'Dr. Amin Hassan',  'assessor', 'Arts and Design',    'amin@university.edu.my', NULL, 'active'),
-('as_1005', MD5('justin123'),  'Dr. Justin Lee',   'assessor', 'Arts and Design',    'justin@university.edu.my', NULL, 'active'),
-('as_1006', MD5('farah123'),   'Dr. Farah',        'assessor', 'Engineering',        'farah@university.edu.my', NULL, 'active'),
-('as_1007', MD5('kumar123'),   'Dr. Kumar',        'assessor', 'Engineering',        'kumar@university.edu.my', NULL, 'active'),
-('as_1008', MD5('daniel123'),  'Prof. Daniel Ong', 'assessor', 'Engineering',        'daniel@university.edu.my', NULL, 'active'),
-('as_1009', MD5('enna123'),    'Dr. Enna Tan',     'assessor', 'Engineering',        'enna@university.edu.my', NULL, 'active'),
-('as_1010', MD5('brenda123'),  'Prof. Brenda Lim', 'assessor', 'Finance',            'brenda@university.edu.my', NULL, 'active'),
-('as_1011', MD5('kelvin123'),  'Dr. Kelvin Goh',   'assessor', 'Finance',            'kelvin@university.edu.my', NULL, 'active'),
-('as_1012', MD5('aisyah123'),  'Dr. Aisyah Noor',  'assessor', 'Finance',            'aisyah@university.edu.my', NULL, 'active'),
+('lec_1001', MD5('lina1234'),    'Dr. Lina',         'lecturer',   'Computer Science', NULL,              'lina@university.edu.my', NULL, 'active'),
+('lec_1002', MD5('raj12345'),     'Prof. Raj',        'lecturer',   'Computer Science', NULL,              'raj@university.edu.my', NULL, 'active'),
+('lec_1003', MD5('amir1234'),    'Dr. Amir',         'lecturer',   'Computer Science', NULL,              'amir@university.edu.my', NULL, 'active'),
+('lec_1004', MD5('amin1234'),    'Dr. Amin Hassan',  'lecturer',   'Arts and Design',  NULL,              'amin@university.edu.my', NULL, 'active'),
+('lec_1005', MD5('justin123'),  'Dr. Justin Lee',   'lecturer',   'Arts and Design',  NULL,              'justin@university.edu.my', NULL, 'active'),
+('lec_1006', MD5('farah123'),   'Dr. Farah',        'lecturer',   'Engineering',      NULL,              'farah@university.edu.my', NULL, 'active'),
+('lec_1007', MD5('kumar123'),   'Dr. Kumar',        'lecturer',   'Engineering',      NULL,              'kumar@university.edu.my', NULL, 'active'),
+('lec_1008', MD5('daniel123'),  'Prof. Daniel Ong', 'lecturer',   'Engineering',      NULL,              'daniel@university.edu.my', NULL, 'active'),
+('lec_1009', MD5('enna1234'),    'Dr. Enna Tan',     'lecturer',   'Engineering',      NULL,              'enna@university.edu.my', NULL, 'active'),
+('lec_1010', MD5('brenda123'),  'Prof. Brenda Lim', 'lecturer',   'Finance',          NULL,              'brenda@university.edu.my', NULL, 'active'),
+('lec_1011', MD5('kelvin123'),  'Dr. Kelvin Goh',   'lecturer',   'Finance',          NULL,              'kelvin@university.edu.my', NULL, 'active'),
+('lec_1012', MD5('aisyah123'),  'Dr. Aisyah Noor',  'lecturer',   'Finance',          NULL,              'aisyah@university.edu.my', NULL, 'active'),
 
-('S0021', MD5('stud0021'), 'Ahmad Zulkifli',   'student', 'Computer Science', 'ahmad@student.irms.com',   'S0021', 'active'),
-('S0022', MD5('stud0022'), 'Nurul Aina',       'student', 'Finance',          'nurul@student.irms.com',   'S0022', 'active'),
-('S0023', MD5('stud0023'), 'Khairul Hisham',   'student', 'Engineering',      'khairul@student.irms.com', 'S0023', 'active'),
-('S0024', MD5('stud0024'), 'Siti Hajar',       'student', 'Computer Science', 'siti@student.irms.com',    'S0024', 'active'),
-('S0025', MD5('stud0025'), 'Lee Wei Jian',     'student', 'Arts and Design',  'lee@student.irms.com',     'S0025', 'active'),
-('S0026', MD5('stud0026'), 'Priya Rajan',      'student', 'Finance',          'priya@student.irms.com',   'S0026', 'active'),
-('S0027', MD5('stud0027'), 'Hafizuddin Malik', 'student', 'Computer Science', 'hafiz@student.irms.com',   'S0027', 'active'),
-('S0028', MD5('stud0028'), 'Amirah Zainudin',  'student', 'Arts and Design',  'amirah@student.irms.com',  'S0028', 'active'),
-('S0029', MD5('stud0029'), 'Tan Jia Hui',      'student', 'Computer Science', 'tan@student.irms.com',     'S0029', 'active'),
-('S0030', MD5('stud0030'), 'Muhammad Faris',   'student', 'Engineering',      'faris@student.irms.com',   'S0030', 'active'),
-('S0031', MD5('stud0031'), 'Nur Syahirah',     'student', 'Finance',          'nursyahirah@student.irms.com', 'S0031', 'active'),
-('S0032', MD5('stud0032'), 'Azrul Nizam',      'student', 'Engineering',      'azrul@student.irms.com',   'S0032', 'active'),
-('S0033', MD5('stud0033'), 'Aiman Hakim',      'student', 'Computer Science', 'aiman@student.irms.com',   'S0033', 'active'),
-('S0034', MD5('stud0034'), 'Siti Nur Aisyah',  'student', 'Finance',          'aisyah2@student.irms.com', 'S0034', 'active'),
-('S0035', MD5('stud0035'), 'Jason Lim',        'student', 'Computer Science', 'jason@student.irms.com',   'S0035', 'active'),
-('S0036', MD5('stud0036'), 'Nurul Izzah',      'student', 'Arts and Design',  'izzah@student.irms.com',   'S0036', 'active'),
-('S0037', MD5('stud0037'), 'Daniel Tan',       'student', 'Arts and Design',  'daniel2@student.irms.com', 'S0037', 'active'),
-('S0038', MD5('stud0038'), 'Farah Nabila',     'student', 'Finance',          'farahnabila@student.irms.com', 'S0038', 'active'),
-('S0039', MD5('stud0039'), 'Lim Wei Jian',     'student', 'Engineering',      'weijian@student.irms.com', 'S0039', 'active'),
-('S0040', MD5('stud0040'), 'Muhammad Danish',  'student', 'Computer Science', 'danish@student.irms.com',  'S0040', 'active'),
-('S0041', MD5('stud0041'), 'Chloe Ong',        'student', 'Arts and Design',  'chloe@student.irms.com',   'S0041', 'active'),
-('S0042', MD5('stud0042'), 'Ethan Wong',       'student', 'Arts and Design',  'ethan@student.irms.com',   'S0042', 'active'),
-('S0043', MD5('stud0043'), 'Nur Amira',        'student', 'Finance',          'amira@student.irms.com',   'S0043', 'active'),
-('S0044', MD5('stud0044'), 'Goh Jun Hao',      'student', 'Engineering',      'junhao@student.irms.com',  'S0044', 'active'),
-('S0045', MD5('stud0045'), 'Adam Lee',         'student', 'Computer Science', 'adam@student.irms.com',    'S0045', 'active');
+('sup_2001', MD5('intel123'),   'Mr. John Tan',     'supervisor', NULL,               'Intel Penang',    'john.tan@intel.com', NULL, 'active'),
+('sup_2002', MD5('maybank123'), 'Ms. Sarah Lim',    'supervisor', NULL,               'Maybank',         'sarah.lim@maybank.com', NULL, 'active'),
+
+('S0021', MD5('stud0021'), 'Ahmad Zulkifli',   'student', 'Computer Science', NULL, 'ahmad@student.irms.com',          'S0021', 'active'),
+('S0022', MD5('stud0022'), 'Nurul Aina',       'student', 'Finance',          NULL, 'nurul@student.irms.com',          'S0022', 'active'),
+('S0023', MD5('stud0023'), 'Khairul Hisham',   'student', 'Engineering',      NULL, 'khairul@student.irms.com',        'S0023', 'active'),
+('S0024', MD5('stud0024'), 'Siti Hajar',       'student', 'Computer Science', NULL, 'siti@student.irms.com',           'S0024', 'active'),
+('S0025', MD5('stud0025'), 'Lee Wei Jian',     'student', 'Arts and Design',  NULL, 'lee@student.irms.com',            'S0025', 'active'),
+('S0026', MD5('stud0026'), 'Priya Rajan',      'student', 'Finance',          NULL, 'priya@student.irms.com',          'S0026', 'active'),
+('S0027', MD5('stud0027'), 'Hafizuddin Malik', 'student', 'Computer Science', NULL, 'hafiz@student.irms.com',          'S0027', 'active'),
+('S0028', MD5('stud0028'), 'Amirah Zainudin',  'student', 'Arts and Design',  NULL, 'amirah@student.irms.com',         'S0028', 'active'),
+('S0029', MD5('stud0029'), 'Tan Jia Hui',      'student', 'Computer Science', NULL, 'tan@student.irms.com',            'S0029', 'active'),
+('S0030', MD5('stud0030'), 'Muhammad Faris',   'student', 'Engineering',      NULL, 'faris@student.irms.com',          'S0030', 'active'),
+('S0031', MD5('stud0031'), 'Nur Syahirah',     'student', 'Finance',          NULL, 'nursyahirah@student.irms.com',    'S0031', 'active'),
+('S0032', MD5('stud0032'), 'Azrul Nizam',      'student', 'Engineering',      NULL, 'azrul@student.irms.com',          'S0032', 'active'),
+('S0033', MD5('stud0033'), 'Aiman Hakim',      'student', 'Computer Science', NULL, 'aiman@student.irms.com',          'S0033', 'active'),
+('S0034', MD5('stud0034'), 'Siti Nur Aisyah',  'student', 'Finance',          NULL, 'aisyah2@student.irms.com',        'S0034', 'active'),
+('S0035', MD5('stud0035'), 'Jason Lim',        'student', 'Computer Science', NULL, 'jason@student.irms.com',          'S0035', 'active'),
+('S0036', MD5('stud0036'), 'Nurul Izzah',      'student', 'Arts and Design',  NULL, 'izzah@student.irms.com',          'S0036', 'active'),
+('S0037', MD5('stud0037'), 'Daniel Tan',       'student', 'Arts and Design',  NULL, 'daniel2@student.irms.com',        'S0037', 'active'),
+('S0038', MD5('stud0038'), 'Farah Nabila',     'student', 'Finance',          NULL, 'farahnabila@student.irms.com',    'S0038', 'active'),
+('S0039', MD5('stud0039'), 'Lim Wei Jian',     'student', 'Engineering',      NULL, 'weijian@student.irms.com',        'S0039', 'active'),
+('S0040', MD5('stud0040'), 'Muhammad Danish',  'student', 'Computer Science', NULL, 'danish@student.irms.com',         'S0040', 'active'),
+('S0041', MD5('stud0041'), 'Chloe Ong',        'student', 'Arts and Design',  NULL, 'chloe@student.irms.com',          'S0041', 'active'),
+('S0042', MD5('stud0042'), 'Ethan Wong',       'student', 'Arts and Design',  NULL, 'ethan@student.irms.com',          'S0042', 'active'),
+('S0043', MD5('stud0043'), 'Nur Amira',        'student', 'Finance',          NULL, 'amira@student.irms.com',          'S0043', 'active'),
+('S0044', MD5('stud0044'), 'Goh Jun Hao',      'student', 'Engineering',      NULL, 'junhao@student.irms.com',         'S0044', 'active'),
+('S0045', MD5('stud0045'), 'Adam Lee',         'student', 'Computer Science', NULL, 'adam@student.irms.com',           'S0045', 'active');
 
 -- Internships
-INSERT INTO internships (student_id, assessor_id, company_name, industry, start_date, end_date, status, notes) VALUES
-('S0021', 2,  'Petronas Digital',       'Technology / IT',            '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0022', 12, 'CIMB Group',             'Finance / Banking',          '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0023', 9,  'Siemens Malaysia',       'Engineering',                '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0024', 3,  'Intel Penang',           'Technology / IT',            '2026-06-01', '2026-10-31', 'completed',  ''),
-('S0025', 5,  'Mediaprima Creative',    'Design / Media',             '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0026', 13, 'Maybank',                'Finance / Banking',          '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0027', 4,  'Dell Technologies',      'Technology / IT',            '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0028', NULL, NULL,                   NULL,                         NULL,         NULL,         'unassigned', ''),
-('S0029', 2,  'TM One',                 'Technology / IT',            '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0030', 10, 'Tenaga Nasional Berhad', 'Engineering / Energy',       '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0031', NULL, NULL,                   NULL,                         NULL,         NULL,         'unassigned', ''),
-('S0032', 11, 'Bosch Malaysia',         'Engineering',                '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0033', 4,  'Shopee Malaysia',        'E-commerce / IT',            '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0034', 13, 'Grab Malaysia',          'Technology / Transport',     '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0035', 2,  'AirAsia Digital',        'Technology / Aviation',      '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0036', NULL, NULL,                   NULL,                         NULL,         NULL,         'unassigned', ''),
-('S0037', 6,  'Astro Malaysia',         'Media / Broadcasting',       '2026-06-01', '2026-10-31', 'completed',  ''),
-('S0038', 12, 'RHB Bank',               'Finance / Banking',          '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0039', 9,  'Panasonic Malaysia',     'Engineering / Electronics',  '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0040', 2,  'Huawei Malaysia',        'Technology / Telecom',       '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0041', NULL, NULL,                   NULL,                         NULL,         NULL,         'unassigned', ''),
-('S0042', 5,  'Leo Burnett Malaysia',   'Design / Advertising',       '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0043', 13, 'Public Bank',            'Finance / Banking',          '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0044', 10, 'Gamuda Berhad',          'Engineering / Construction', '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0045', 4,  'HP Malaysia',            'Technology / IT',            '2026-06-01', '2026-10-31', 'completed',  '');
+-- lecturer_id keeps your old academic mapping
+-- supervisor_id is only assigned when company matches one of the 2 fixed supervisors
+INSERT INTO internships (student_id, lecturer_id, supervisor_id, company_name, industry, start_date, end_date, status, notes) VALUES
+('S0021', 2,  14, 'Intel Penang', 'Technology / IT',            '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0022', 12, 15, 'Maybank',      'Finance / Banking',          '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0023', 9,  14, 'Intel Penang', 'Engineering',                '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0024', 3,  14, 'Intel Penang', 'Technology / IT',            '2026-06-01', '2026-10-31', 'completed',  ''),
+('S0025', 5,  14, 'Intel Penang', 'Design / Media',             '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0026', 13, 15, 'Maybank',      'Finance / Banking',          '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0027', 4,  14, 'Intel Penang', 'Technology / IT',            '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0028', NULL, NULL, NULL,       NULL,                         NULL,         NULL,         'unassigned', ''),
+('S0029', 2,  14, 'Intel Penang', 'Technology / IT',            '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0030', 10, 14, 'Intel Penang', 'Engineering / Energy',       '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0031', NULL, NULL, NULL,       NULL,                         NULL,         NULL,         'unassigned', ''),
+('S0032', 8,  14, 'Intel Penang', 'Engineering',                '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0033', 4,  14, 'Intel Penang', 'E-commerce / IT',            '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0034', 13, 14, 'Intel Penang', 'Technology / Transport',     '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0035', 2,  14, 'Intel Penang', 'Technology / Aviation',      '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0036', NULL, NULL, NULL,       NULL,                         NULL,         NULL,         'unassigned', ''),
+('S0037', 6,  14, 'Intel Penang', 'Media / Broadcasting',       '2026-06-01', '2026-10-31', 'completed',  ''),
+('S0038', 12, 15, 'Maybank',      'Finance / Banking',          '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0039', 9,  14, 'Intel Penang', 'Engineering / Electronics',  '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0040', 2,  14, 'Intel Penang', 'Technology / Telecom',       '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0041', NULL, NULL, NULL,       NULL,                         NULL,         NULL,         'unassigned', ''),
+('S0042', 5,  14, 'Intel Penang', 'Design / Advertising',       '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0043', 13, 15, 'Maybank',      'Finance / Banking',          '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0044', 10, 14, 'Intel Penang', 'Engineering / Construction', '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0045', 4,  14, 'Intel Penang', 'Technology / IT',            '2026-06-01', '2026-10-31', 'completed',  '');
