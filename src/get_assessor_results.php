@@ -1,18 +1,21 @@
 <?php
-    
 session_start();
 require_once 'auth.php';
-requireRole('assessor');
+requireRole('assessor'); // allows lecturer + supervisor
 require_once 'config.php';
 
 header('Content-Type: application/json');
 
-$assessor_id = (int)($_SESSION['user_id'] ?? 0);
+$user_id   = (int)($_SESSION['user_id'] ?? 0);
+$user_role = $_SESSION['role'] ?? '';
 
-if (!$assessor_id) {
+if (!$user_id) {
     echo json_encode(['success' => false, 'error' => 'Not authenticated.']);
     exit;
 }
+
+$assessor_type = ($user_role === 'lecturer') ? 'lecturer' : 'supervisor';
+$id_column     = ($user_role === 'lecturer') ? 'i.lecturer_id' : 'i.supervisor_id';
 
 $conn = getConnection();
 
@@ -35,8 +38,11 @@ $sql = "
         a.comments
     FROM internships i
     JOIN students s ON i.student_id = s.student_id
-    LEFT JOIN assessments a ON i.internship_id = a.internship_id
-    WHERE i.assessor_id = ?
+    -- Only this assessor's own marks, filtered by assessor_type
+    LEFT JOIN assessments a
+        ON i.internship_id = a.internship_id
+        AND a.assessor_type = ?
+    WHERE $id_column = ?
     ORDER BY s.student_id ASC
 ";
 
@@ -46,7 +52,7 @@ if (!$stmt) {
     exit;
 }
 
-$stmt->bind_param('i', $assessor_id);
+$stmt->bind_param('si', $assessor_type, $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 

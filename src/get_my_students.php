@@ -6,29 +6,51 @@ header('Content-Type: application/json');
 require_once 'config.php';
 
 $conn = getConnection();
-$assessor_id = (int)($_SESSION['user_id'] ?? 0);
+$user_id   = (int)($_SESSION['user_id'] ?? 0);
+$user_role = $_SESSION['role'] ?? '';
 
-if (!$assessor_id) {
+if (!$user_id || !in_array($user_role, ['lecturer', 'supervisor'])) {
     echo json_encode([]);
     exit;
 }
 
+// Lecturer is linked via lecturer_id; supervisor via supervisor_id
+$id_column = ($user_role === 'lecturer') ? 'i.lecturer_id' : 'i.supervisor_id';
+
 $query = "
-    SELECT 
-        i.internship_id, i.student_id, s.full_name, s.programme, 
-        i.company_name, a.total_score, a.undertaking_tasks, a.health_safety,
-        a.theoretical_knowledge, a.report_presentation, a.clarity_language,
-        a.lifelong_learning, a.project_management, a.time_management, a.comments
+    SELECT
+        i.internship_id,
+        i.student_id,
+        s.full_name,
+        s.programme,
+        i.company_name,
+        a.total_score,
+        a.undertaking_tasks,
+        a.health_safety,
+        a.theoretical_knowledge,
+        a.report_presentation,
+        a.clarity_language,
+        a.lifelong_learning,
+        a.project_management,
+        a.time_management,
+        a.comments
     FROM internships i
     JOIN students s ON i.student_id = s.student_id
-    LEFT JOIN assessments a ON i.internship_id = a.internship_id
-    WHERE i.assessor_id = ?
+    -- Only show THIS assessor's own assessment row (filtered by assessor_type)
+    LEFT JOIN assessments a
+        ON i.internship_id = a.internship_id
+        AND a.assessor_type = ?
+    WHERE $id_column = ?
 ";
+
+$assessor_type = ($user_role === 'lecturer') ? 'lecturer' : 'supervisor';
+
 $stmt = $conn->prepare($query);
-$stmt->bind_param("i", $assessor_id);
+$stmt->bind_param("si", $assessor_type, $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 $students = [];
+
 if ($result && $result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
         $student = [
@@ -56,6 +78,7 @@ if ($result && $result->num_rows > 0) {
         $students[] = $student;
     }
 }
+
 echo json_encode($students);
 $stmt->close();
 $conn->close();

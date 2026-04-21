@@ -1,4 +1,10 @@
 <?php
+// ============================================================
+//  result_entry_handler.php
+//  Stores lecturer OR supervisor scores separately.
+//  When both have submitted, computes the averaged final score.
+// ============================================================
+session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -10,11 +16,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+$user_role = $_SESSION['role'] ?? '';
+if (!in_array($user_role, ['lecturer', 'supervisor'])) {
+    echo json_encode(['success' => false, 'errors' => ['Unauthorized.']]);
+    exit;
+}
+$assessor_type = ($user_role === 'lecturer') ? 'lecturer' : 'supervisor';
+
 $raw   = file_get_contents('php://input');
 $input = json_decode($raw, true);
 if (!is_array($input)) $input = $_POST;
 
-// ── Read inputs ───────────────────────────────────────────
 $internship_id          = isset($input['internship_id'])          ? (int)$input['internship_id']              : 0;
 $undertaking_tasks      = isset($input['undertaking_tasks'])      ? (float)$input['undertaking_tasks']         : null;
 $health_safety          = isset($input['health_safety'])          ? (float)$input['health_safety']             : null;
@@ -26,9 +38,8 @@ $project_management     = isset($input['project_management'])     ? (float)$inpu
 $time_management        = isset($input['time_management'])        ? (float)$input['time_management']           : null;
 $comments               = isset($input['comments'])               ? trim($input['comments'])                   : '';
 
-// ── Validate ─────────────────────────────────────────────
+// Validate
 $errors = [];
-
 if (!$internship_id) $errors[] = 'Invalid internship ID.';
 
 $limits = [
@@ -53,14 +64,13 @@ if (!empty($errors)) {
     exit;
 }
 
-// ── Calculate total ───────────────────────────────────────
-$total_score = $undertaking_tasks + $health_safety + $theoretical_knowledge
-             + $report_presentation + $clarity_language + $lifelong_learning
-             + $project_management + $time_management;
+$my_total = $undertaking_tasks + $health_safety + $theoretical_knowledge
+          + $report_presentation + $clarity_language + $lifelong_learning
+          + $project_management + $time_management;
 
 $conn = getConnection();
 
-// ── Check internship exists ───────────────────────────────
+// Verify internship exists
 $chk = $conn->prepare("SELECT internship_id FROM internships WHERE internship_id = ?");
 $chk->bind_param('i', $internship_id);
 $chk->execute();
@@ -71,54 +81,70 @@ if ($chk->num_rows === 0) {
 }
 $chk->close();
 
-// ── Upsert: delete old record if exists, then insert ─────
-$del = $conn->prepare("DELETE FROM assessments WHERE internship_id = ?");
-$del->bind_param('i', $internship_id);
+// Upsert: delete my old row if any, then insert fresh
+$del = $conn->prepare("DELETE FROM assessments WHERE internship_id = ? AND assessor_type = ?");
+$del->bind_param('is', $internship_id, $assessor_type);
 $del->execute();
 $del->close();
 
-$stmt = $conn->prepare("
+$ins = $conn->prepare("
     INSERT INTO assessments
-        (internship_id, undertaking_tasks, health_safety, theoretical_knowledge,
+        (internship_id, assessor_type, undertaking_tasks, health_safety, theoretical_knowledge,
          report_presentation, clarity_language, lifelong_learning,
          project_management, time_management, total_score, comments)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ");
-
-$stmt->bind_param(
-    'iddddddddds',
-    $internship_id,
-    $undertaking_tasks,
-    $health_safety,
-    $theoretical_knowledge,
-    $report_presentation,
-    $clarity_language,
-    $lifelong_learning,
-    $project_management,
-    $time_management,
-    $total_score,
-    $comments
+$ins->bind_param('isddddddddds',
+    $internship_id, $assessor_type,
+    $undertaking_tasks, $health_safety, $theoretical_knowledge,
+    $report_presentation, $clarity_language, $lifelong_learning,
+    $project_management, $time_management, $my_total, $comments
 );
 
-if ($stmt->execute()) {
-    // FIXED: Updated to 'completed' to match your ENUM schema
-    $upd = $conn->prepare("
-        UPDATE internships SET status = 'completed'
-        WHERE internship_id = ?
-    ");
-    $upd->bind_param('i', $internship_id);
-    $upd->execute();
-    $upd->close();
+if (!$ins->execute()) {
+    echo json_encode(['success' => false, 'errors' => ['Database error: ' . $ins->error]]);
+    $ins->close(); $conn->close(); exit;
+}
+$ins->close();
 
-    echo json_encode([
-        'success'     => true,
-        'message'     => 'Assessment submitted successfully.',
-        'total_score' => number_format($total_score, 2)
-    ]);
-} else {
-    echo json_encode(['success' => false, 'errors' => ['Database error: ' . $stmt->error]]);
+// Check if BOTH lecturer and supervisor have now submitted
+$bothCheck = $conn->prepare("
+    SELECT assessor_type, total_score
+    FROM assessments
+    WHERE internship_id = ?
+");
+$bothCheck->bind_param('i', $internship_id);
+$bothCheck->execute();
+$bothResult = $bothCheck->get_result();
+$bothCheck->close();
+
+$submitted = [];
+while ($row = $bothResult->fetch_assoc()) {
+    $submitted[$row['assessor_type']] = (float)$row['total_score'];
 }
 
-$stmt->close();
+$final_score = null;
+$new_status  = 'pending';
+
+if (isset($submitted['lecturer']) && isset($submitted['supervisor'])) {
+    // Average of both totals
+    $final_score = round(($submitted['lecturer'] + $submitted['supervisor']) / 2, 2);
+    $new_status  = 'completed';
+}
+
+// Update internship status
+$upd = $conn->prepare("UPDATE internships SET status = ? WHERE internship_id = ?");
+$upd->bind_param('si', $new_status, $internship_id);
+$upd->execute();
+$upd->close();
+
 $conn->close();
+
+echo json_encode([
+    'success'     => true,
+    'message'     => 'Assessment submitted successfully.',
+    'total_score' => number_format($my_total, 2),
+    'final_score' => $final_score !== null ? number_format($final_score, 2) : null,
+    'both_done'   => ($final_score !== null)
+]);
 ?>
