@@ -69,7 +69,8 @@ CREATE TABLE internships (
 -- ------------------------------------------------------------
 CREATE TABLE assessments (
     assessment_id               INT AUTO_INCREMENT PRIMARY KEY,
-    internship_id               INT NOT NULL UNIQUE,
+    internship_id               INT NOT NULL,
+    assessor_type               ENUM('lecturer', 'supervisor') NOT NULL,
     undertaking_tasks           DECIMAL(5,2) DEFAULT NULL,   -- 10%
     health_safety               DECIMAL(5,2) DEFAULT NULL,   -- 10%
     theoretical_knowledge       DECIMAL(5,2) DEFAULT NULL,   -- 10%
@@ -83,6 +84,8 @@ CREATE TABLE assessments (
     submitted_at                DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at                  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
+    -- Ensures a lecturer can only grade once, and a supervisor can only grade once per internship
+    UNIQUE KEY unique_assessment (internship_id, assessor_type),
     FOREIGN KEY (internship_id) REFERENCES internships(internship_id) ON DELETE CASCADE
 );
 

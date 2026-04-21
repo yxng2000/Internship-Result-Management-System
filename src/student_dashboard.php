@@ -30,6 +30,7 @@ function get_initials($name) {
     return $initials ?: 'ST';
 }
 
+// UPDATED SQL: Replaced assessor_id with lecturer_id and supervisor_id
 $sql = "
     SELECT
         s.student_id,
@@ -44,13 +45,16 @@ $sql = "
         i.status,
         i.notes,
         i.updated_at,
-        au.full_name AS assessor_name
+        l.full_name AS lecturer_name,
+        su.full_name AS supervisor_name
     FROM students s
     JOIN users u ON s.student_id = u.student_id
     LEFT JOIN internships i
         ON s.student_id = i.student_id
-    LEFT JOIN users au
-        ON i.assessor_id = au.user_id
+    LEFT JOIN users l
+        ON i.lecturer_id = l.user_id
+    LEFT JOIN users su
+        ON i.supervisor_id = su.user_id
     WHERE u.user_id = ?
     LIMIT 1
 ";
@@ -81,11 +85,23 @@ $programme     = $row['programme']     ?? '—';
 $student_email = $row['student_email'] ?? '—';
 $company_name  = $row['company_name']  ?? null;
 $industry      = $row['industry']      ?? null;
-$assessor_name = $row['assessor_name'] ?? null;
 $status        = $row['status']        ?? 'unassigned';
 $start_date    = $row['start_date']    ?? null;
 $end_date      = $row['end_date']      ?? null;
 $notes         = $row['notes']         ?? null;
+
+// UPDATED LOGIC: Combine lecturer and supervisor names
+$assessor_name = '-';
+$l_name = $row['lecturer_name'] ?? null;
+$s_name = $row['supervisor_name'] ?? null;
+
+if ($l_name && $s_name) {
+    $assessor_name = $l_name . ' / ' . $s_name;
+} elseif ($l_name) {
+    $assessor_name = $l_name;
+} elseif ($s_name) {
+    $assessor_name = $s_name;
+}
 
 function format_date_display($date) {
     if (!$date) return '—';

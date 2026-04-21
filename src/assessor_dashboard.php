@@ -1,7 +1,7 @@
 <?php
 session_start();
 require_once 'auth.php';
-requireRole('assessor');
+requireRole(['lecturer', 'supervisor']);
 require_once 'config.php';
 
 $conn = getConnection();
@@ -47,7 +47,7 @@ function scalar_prepared(mysqli $conn, string $sql, string $types = '', array $p
 }
 
 function get_assessor_name(mysqli $conn, int $user_id, string $fallback): string {
-    $sql = "SELECT full_name FROM users WHERE user_id = ? AND role = 'assessor' LIMIT 1";
+    $sql = "SELECT full_name FROM users WHERE user_id = ? AND role IN ('lecturer', 'supervisor') LIMIT 1";
     $stmt = $conn->prepare($sql);
     if (!$stmt) return $fallback;
 
@@ -72,29 +72,29 @@ function get_assessor_dashboard_stats(mysqli $conn, int $user_id): array {
         $conn,
         "SELECT COUNT(*) AS total
          FROM internships
-         WHERE assessor_id = ?",
-        'i',
-        [$user_id]
+         WHERE lecturer_id = ? OR supervisor_id = ?",
+        'ii',
+        [$user_id, $user_id]
     );
 
     $pendingCount = scalar_prepared(
         $conn,
         "SELECT COUNT(*) AS total
          FROM internships
-         WHERE assessor_id = ?
+         WHERE (lecturer_id = ? OR supervisor_id = ?)
            AND status = 'pending'",
-        'i',
-        [$user_id]
+        'ii',
+        [$user_id, $user_id]
     );
 
     $completedCount = scalar_prepared(
         $conn,
         "SELECT COUNT(*) AS total
          FROM internships
-         WHERE assessor_id = ?
+         WHERE (lecturer_id = ? OR supervisor_id = ?)
            AND status = 'completed'",
-        'i',
-        [$user_id]
+        'ii',
+        [$user_id, $user_id]
     );
 
     return [
@@ -115,7 +115,7 @@ function get_my_students_preview(mysqli $conn, int $user_id, int $limit = 5): ar
             i.status
         FROM internships i
         JOIN students s ON i.student_id = s.student_id
-        WHERE i.assessor_id = ?
+        WHERE (i.lecturer_id = ? OR i.supervisor_id = ?)
         ORDER BY
             FIELD(i.status, 'pending', 'completed', 'unassigned'),
             i.updated_at DESC,
@@ -126,7 +126,7 @@ function get_my_students_preview(mysqli $conn, int $user_id, int $limit = 5): ar
     $stmt = $conn->prepare($sql);
     if (!$stmt) return $items;
 
-    $stmt->bind_param('ii', $user_id, $limit);
+    $stmt->bind_param('iii', $user_id, $user_id, $limit);
 
     if ($stmt->execute()) {
         $result = $stmt->get_result();

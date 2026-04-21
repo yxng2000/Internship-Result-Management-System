@@ -1,7 +1,7 @@
 <?php
 session_start();
 require_once 'auth.php';
-requireRole('assessor');
+requireRole(['lecturer', 'supervisor']); // UPDATED
 require_once 'config.php';
 
 $conn = getConnection();
@@ -27,7 +27,7 @@ function get_initials($name) {
 }
 
 if ($user_id > 0) {
-    $stmt = $conn->prepare("SELECT full_name FROM users WHERE user_id = ? AND role = 'assessor' LIMIT 1");
+    $stmt = $conn->prepare("SELECT full_name FROM users WHERE user_id = ? AND role IN ('lecturer', 'supervisor') LIMIT 1");
     if ($stmt) {
         $stmt->bind_param("i", $user_id);
         if ($stmt->execute()) {
@@ -81,68 +81,12 @@ $avatar = get_initials($full_name);
   .nav-item:hover { color: var(--text); background: var(--surface2); }
   .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(79,142,247,0.07); }
 
-  /* admin dashboard style footer/logout */
-  .sidebar-footer {
-    margin-top: auto;
-    padding: 16px 20px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .sidebar-user {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    min-width: 0;
-  }
-
-  .avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: 700;
-    color: #fff;
-    flex-shrink: 0;
-  }
-
-  .user-name {
-    font-size: 12px;
-    font-weight: 500;
-    color: rgba(232, 234, 240, 0.55);
-    line-height: 1.3;
-    white-space: nowrap;
-  }
-
-  .logout-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px 14px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: transparent;
-    color: #ff6b6b;
-    font-size: 13px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.15s ease;
-    flex-shrink: 0;
-  }
-
-  .logout-btn:hover {
-    background: rgba(224, 85, 85, 0.08);
-    border-color: #e05555;
-    color: #ff7b7b;
-  }
+  .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .sidebar-user { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .user-name { font-size: 12px; font-weight: 500; color: rgba(232, 234, 240, 0.55); line-height: 1.3; white-space: nowrap; }
+  .logout-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 14px; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: #ff6b6b; font-size: 13px; font-weight: 600; text-decoration: none; transition: all 0.15s ease; flex-shrink: 0; }
+  .logout-btn:hover { background: rgba(224, 85, 85, 0.08); border-color: #e05555; color: #ff7b7b; }
 
   .main { margin-left: 220px; flex: 1; padding: 32px 36px; max-width: 1100px; }
 
@@ -202,7 +146,7 @@ $avatar = get_initials($full_name);
 
   .status-badge { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
   .status-completed  { background: rgba(52,201,123,0.12); color: var(--success); }
-  .status-pending    { background: rgba(240,160,48,0.12);  color: var(--warning); }
+  .status-pending    { background: rgba(240,160,48,0.12); color: var(--warning); }
 
   .actions { display: flex; gap: 6px; }
   .icon-btn { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
@@ -284,7 +228,7 @@ $avatar = get_initials($full_name);
   <div class="page-header">
     <div>
       <div class="page-title">My Students' Results</div>
-      <div class="page-sub">View and filter assessment scores for your assigned students</div>
+      <div class="page-sub">View your scores, check if your partner has submitted, and see the final grade.</div>
     </div>
 
     <div style="display: flex; gap: 12px; align-items: center;">
@@ -301,16 +245,16 @@ $avatar = get_initials($full_name);
       <div class="stat-value blue" id="stat-total">0</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Assessed</div>
+      <div class="stat-label">My Assessments</div>
       <div class="stat-value green" id="stat-assessed">0</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Pending</div>
-      <div class="stat-value amber" id="stat-pending">0</div>
+      <div class="stat-label">Partner Awaiting</div>
+      <div class="stat-value amber" id="stat-pending-partner">0</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Average Score</div>
-      <div class="stat-value purple" id="stat-avg">—</div>
+      <div class="stat-label">Fully Completed</div>
+      <div class="stat-value purple" id="stat-fully-completed">0</div>
     </div>
   </div>
 
@@ -321,16 +265,9 @@ $avatar = get_initials($full_name);
     </div>
     <select class="filter-select" id="statusFilter">
       <option value="all">All Status</option>
-      <option value="assessed">Assessed</option>
-      <option value="pending">Pending</option>
-    </select>
-    <select class="filter-select" id="gradeFilter">
-      <option value="all">All Grades</option>
-      <option value="A">Grade A (≥80)</option>
-      <option value="B">Grade B (70–79)</option>
-      <option value="C">Grade C (60–69)</option>
-      <option value="D">Grade D (50–59)</option>
-      <option value="F">Grade F (&lt;50)</option>
+      <option value="completed">Fully Completed (Both)</option>
+      <option value="pending_partner">Pending Partner</option>
+      <option value="pending_me">Pending My Assessment</option>
     </select>
   </div>
 
@@ -341,9 +278,9 @@ $avatar = get_initials($full_name);
           <th>Student</th>
           <th>Programme</th>
           <th>Company</th>
-          <th>Total Score</th>
-          <th>Grade</th>
-          <th>Status</th>
+          <th>My Score</th>
+          <th>Partner Status</th>
+          <th>Final Grade</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -361,7 +298,7 @@ $avatar = get_initials($full_name);
 <div class="modal-backdrop" id="detailModal">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Assessment Breakdown</div>
+      <div class="modal-title">My Assessment Breakdown</div>
       <div style="display: flex; gap: 16px; align-items: center;">
         <button id="modalEditBtn" class="btn btn-primary btn-sm" style="display: none;">
           <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -380,7 +317,7 @@ $avatar = get_initials($full_name);
         </div>
         <div class="modal-total">
           <div class="modal-total-val" id="m-total">—</div>
-          <div class="modal-total-label">Total / 100</div>
+          <div class="modal-total-label">Final Score / 100</div>
         </div>
       </div>
 
@@ -397,6 +334,8 @@ $avatar = get_initials($full_name);
 <div class="toast" id="toast"></div>
 
 <script>
+  const FETCH_URL = 'get_assessor_results.php?t=' + new Date().getTime();
+
   const ROWS_PER_PAGE = 10;
   let currentPage = 1;
   let data = [];
@@ -412,9 +351,17 @@ $avatar = get_initials($full_name);
     { key: 'time_management',       label: 'Time Management',        max: 15, weight: '15%' },
   ];
 
+  // THE NAN KILLER: This guarantees missing variables become a clean null
+  function safeNum(val) {
+      if (val === null || val === undefined || val === '') return null;
+      const num = parseFloat(val);
+      if (isNaN(num)) return null;
+      return num;
+  }
+
   function getGrade(score) {
-    if (score === null || score === undefined || score === '') return null;
-    const s = parseFloat(score);
+    const s = safeNum(score);
+    if (s === null) return null;
     if (s >= 80) return 'A';
     if (s >= 70) return 'B';
     if (s >= 60) return 'C';
@@ -423,8 +370,8 @@ $avatar = get_initials($full_name);
   }
 
   function getScoreClass(score) {
-    if (score === null || score === '') return 'score-none';
-    const s = parseFloat(score);
+    const s = safeNum(score);
+    if (s === null) return 'score-none';
     if (s >= 70) return 'score-high';
     if (s >= 50) return 'score-mid';
     return 'score-low';
@@ -437,11 +384,12 @@ $avatar = get_initials($full_name);
   }
 
   function getInitials(name) {
+    if (!name) return '--';
     return name.split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase();
   }
 
   function loadResults() {
-    fetch('get_assessor_results.php')
+    fetch(FETCH_URL)
       .then(r => r.json())
       .then(result => {
         data = result.records || [];
@@ -452,27 +400,43 @@ $avatar = get_initials($full_name);
   }
 
   function updateStats() {
-    const assessed = data.filter(r => r.total_score !== null && r.total_score !== '');
-    const scores   = assessed.map(r => parseFloat(r.total_score)).filter(s => !isNaN(s));
-    const avg      = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2) : '—';
+    let myAssessedCount = 0;
+    let fullyCompletedCount = 0;
+    let pendingPartnerCount = 0;
 
-    document.getElementById('stat-total').textContent    = data.length;
-    document.getElementById('stat-assessed').textContent = assessed.length;
-    document.getElementById('stat-pending').textContent  = data.length - assessed.length;
-    document.getElementById('stat-avg').textContent      = avg;
+    data.forEach(r => {
+        const iHaveAssessed = safeNum(r.total_score) !== null;
+        const partnerHasAssessed = safeNum(r.other_total_score) !== null;
+        
+        if (iHaveAssessed) myAssessedCount++;
+        if (iHaveAssessed && partnerHasAssessed) fullyCompletedCount++;
+        if (iHaveAssessed && !partnerHasAssessed) pendingPartnerCount++;
+    });
+
+    document.getElementById('stat-total').textContent          = data.length;
+    document.getElementById('stat-assessed').textContent       = myAssessedCount;
+    document.getElementById('stat-pending-partner').textContent = pendingPartnerCount;
+    document.getElementById('stat-fully-completed').textContent = fullyCompletedCount;
+  }
+
+  function getCustomStatus(r) {
+      const iHaveAssessed = safeNum(r.total_score) !== null;
+      const partnerHasAssessed = safeNum(r.other_total_score) !== null;
+      
+      if (iHaveAssessed && partnerHasAssessed) return 'completed';
+      if (iHaveAssessed && !partnerHasAssessed) return 'pending_partner';
+      return 'pending_me';
   }
 
   function filteredData() {
     const q  = document.getElementById('searchInput').value.toLowerCase();
     const sf = document.getElementById('statusFilter').value;
-    const gf = document.getElementById('gradeFilter').value;
 
     return data.filter(r => {
-      const matchQ  = r.student_id.toLowerCase().includes(q) || r.full_name.toLowerCase().includes(q);
-      const assessed = r.total_score !== null && r.total_score !== '';
-      const matchS  = sf === 'all' || (sf === 'assessed' ? assessed : !assessed);
-      const matchG  = gf === 'all' || getGrade(r.total_score) === gf;
-      return matchQ && matchS && matchG;
+      const matchQ  = (r.student_id || '').toLowerCase().includes(q) || (r.full_name || '').toLowerCase().includes(q);
+      const subStatus = getCustomStatus(r);
+      const matchS  = sf === 'all' || subStatus === sf;
+      return matchQ && matchS;
     });
   }
 
@@ -491,41 +455,53 @@ $avatar = get_initials($full_name);
     } else {
       document.getElementById('noResults').style.display = 'none';
       tbody.innerHTML = slice.map(r => {
-        const assessed  = r.total_score !== null && r.total_score !== '';
-        const score     = assessed ? parseFloat(r.total_score).toFixed(1) : null;
-        const grade     = getGrade(r.total_score);
+        
+        // Use safeNum so NaN cannot exist
+        const myScoreValue = safeNum(r.total_score);
+        const myScore = myScoreValue !== null ? myScoreValue.toFixed(1) : null;
+        
+        const partnerAssessed = safeNum(r.other_total_score) !== null;
+        
+        const finalScoreValue = safeNum(r.final_score);
+        const finalScore = finalScoreValue !== null ? finalScoreValue.toFixed(1) : null;
+        
+        const grade = getGrade(r.final_score);
         const scoreClass = getScoreClass(r.total_score);
-        const barPct    = score ? Math.min(parseFloat(score), 100) : 0;
-        const barColor  = getBarColor(barPct);
+        const barPct = myScore ? Math.min(parseFloat(myScore), 100) : 0;
+        const barColor = getBarColor(barPct);
 
         return `
           <tr onclick='openModal(${JSON.stringify(r).replace(/'/g, "\\'")})'>
             <td>
               <div class="student-cell">
-                <span>${r.full_name}</span>
-                <span class="student-id">${r.student_id}</span>
+                <span>${r.full_name || '—'}</span>
+                <span class="student-id">${r.student_id || '—'}</span>
               </div>
             </td>
-            <td>${r.programme}</td>
+            <td>${r.programme || '—'}</td>
             <td>${r.company_name || '<span style="color:var(--muted);font-size:12px">—</span>'}</td>
+            
             <td>
-              ${assessed
-                ? `<div class="${scoreClass}" style="font-family:var(--mono);font-weight:700;">${score}</div>
+              ${myScore !== null
+                ? `<div class="${scoreClass}" style="font-family:var(--mono);font-weight:700;">${myScore}</div>
                    <div class="score-bar-wrap"><div class="score-bar" style="width:${barPct}%;background:${barColor}"></div></div>`
-                : `<span style="color:var(--muted);font-size:12px;">Not assessed</span>`
+                : `<span style="color:var(--muted);font-size:12px;">Pending</span>`
               }
             </td>
+            
             <td>
-              ${grade
-                ? `<span class="grade-badge grade-${grade}">${grade}</span>`
-                : `<span class="grade-badge grade-none">—</span>`
-              }
-            </td>
-            <td>
-              <span class="status-badge ${assessed ? 'status-completed' : 'status-pending'}">
-                ${assessed ? 'Assessed' : 'Pending'}
+              <span class="status-badge ${partnerAssessed ? 'status-completed' : 'status-pending'}">
+                ${partnerAssessed ? 'Assessed' : 'Pending'}
               </span>
             </td>
+
+            <td>
+              ${finalScore !== null
+                ? `<div style="font-weight:700; font-family:var(--mono); font-size:15px; display:flex; align-items:center; gap:8px;">${finalScore} <span class="grade-badge grade-${grade}">${grade}</span></div>`
+                : `<span style="color:var(--muted);font-size:12px;">Awaiting Partner</span>`
+              }
+            </td>
+
             <td>
               <div class="actions" onclick="event.stopPropagation()">
                 <button class="icon-btn" title="View detail" onclick='openModal(${JSON.stringify(r).replace(/'/g, "\\'")})'>
@@ -553,7 +529,8 @@ $avatar = get_initials($full_name);
   }
 
   function openModal(r) {
-    const assessed = r.total_score !== null && r.total_score !== '';
+    const myScoreAssessed = safeNum(r.total_score) !== null;
+    const bothAssessed = safeNum(r.final_score) !== null;
 
     const modalEditBtn = document.getElementById('modalEditBtn');
     modalEditBtn.style.display = 'inline-flex';
@@ -561,35 +538,40 @@ $avatar = get_initials($full_name);
       window.location.href = `result_entry.php?edit=${r.internship_id}`;
     };
 
-    if (assessed) {
+    if (myScoreAssessed) {
       modalEditBtn.innerHTML = `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit Score`;
     } else {
       modalEditBtn.innerHTML = `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Enter Score`;
     }
 
     document.getElementById('m-avatar').textContent = getInitials(r.full_name);
-    document.getElementById('m-name').textContent   = r.full_name;
-    document.getElementById('m-meta').textContent   = `${r.student_id} · ${r.programme} · ${r.company_name || '—'}`;
+    document.getElementById('m-name').textContent   = r.full_name || '—';
+    document.getElementById('m-meta').textContent   = `${r.student_id || '—'} · ${r.programme || '—'} · ${r.company_name || '—'}`;
 
     const totalEl = document.getElementById('m-total');
     const totalLabelEl = document.querySelector('.modal-total-label');
 
-    if (assessed) {
-      const score = parseFloat(r.total_score).toFixed(1);
-      const grade = getGrade(r.total_score);
-      totalEl.textContent = score;
-      totalEl.className   = 'modal-total-val ' + getScoreClass(r.total_score);
-      totalLabelEl.textContent = `/ 100.0  ·  Grade ${grade}`;
+    if (bothAssessed) {
+      const fScore = parseFloat(r.final_score).toFixed(1);
+      const fGrade = getGrade(r.final_score);
+      totalEl.textContent = fScore;
+      totalEl.className   = 'modal-total-val ' + getScoreClass(r.final_score);
+      totalLabelEl.textContent = `FINAL SCORE / 100  ·  Grade ${fGrade}`;
+    } else if (myScoreAssessed) {
+      const myScore = parseFloat(r.total_score).toFixed(1);
+      totalEl.textContent = myScore;
+      totalEl.className   = 'modal-total-val score-mid';
+      totalLabelEl.textContent = `YOUR SCORE (Awaiting Partner)`;
     } else {
       totalEl.textContent = '—';
       totalEl.className   = 'modal-total-val score-none';
-      totalLabelEl.textContent = 'Not yet assessed';
+      totalLabelEl.textContent = 'Not yet assessed by anyone';
     }
 
     const breakdownEl = document.getElementById('m-breakdown');
-    if (assessed) {
+    if (myScoreAssessed) {
       breakdownEl.innerHTML = CRITERIA_META.map(c => {
-        const val = parseFloat(r[c.key] || 0);
+        const val = safeNum(r[c.key]) || 0;
         const pct = (val / c.max) * 100;
         return `
           <div class="breakdown-row">
@@ -611,8 +593,9 @@ $avatar = get_initials($full_name);
     }
 
     const commentsWrap = document.getElementById('m-comments-wrap');
-    if (assessed && r.comments) {
-      document.getElementById('m-comments').textContent = r.comments;
+    if (myScoreAssessed && r.comments) {
+      // Escape HTML to prevent strange formatting issues from user input
+      document.getElementById('m-comments').textContent = String(r.comments).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       commentsWrap.style.display = 'block';
     } else {
       commentsWrap.style.display = 'none';
@@ -638,10 +621,7 @@ $avatar = get_initials($full_name);
 
   function exportCSV() {
     const rows = filteredData();
-    const header = ['Student ID', 'Name', 'Programme', 'Company',
-      'Undertaking', 'Health & Safety', 'Theoretical', 'Report',
-      'Clarity', 'Lifelong', 'Project Mgmt', 'Time Mgmt', 'Total', 'Grade'];
-
+    const header = ['Student ID', 'Name', 'Programme', 'Company', 'My Score', 'Partner Status', 'Final Score', 'Grade'];
     const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
     const lines = rows.map(r => [
@@ -649,16 +629,10 @@ $avatar = get_initials($full_name);
       esc(r.full_name),
       esc(r.programme),
       esc(r.company_name || ''),
-      esc(r.undertaking_tasks || ''),
-      esc(r.health_safety || ''),
-      esc(r.theoretical_knowledge || ''),
-      esc(r.report_presentation || ''),
-      esc(r.clarity_language || ''),
-      esc(r.lifelong_learning || ''),
-      esc(r.project_management || ''),
-      esc(r.time_management || ''),
       esc(r.total_score || ''),
-      esc(getGrade(r.total_score) || '')
+      esc(safeNum(r.other_total_score) !== null ? 'Assessed' : 'Pending'),
+      esc(r.final_score || ''),
+      esc(getGrade(r.final_score) || '')
     ].join(','));
 
     const csv = [header.map(esc).join(','), ...lines].join('\n');
@@ -671,7 +645,6 @@ $avatar = get_initials($full_name);
 
   document.getElementById('searchInput').addEventListener('input',  () => { currentPage = 1; render(); });
   document.getElementById('statusFilter').addEventListener('change', () => { currentPage = 1; render(); });
-  document.getElementById('gradeFilter').addEventListener('change',  () => { currentPage = 1; render(); });
 
   loadResults();
 </script>

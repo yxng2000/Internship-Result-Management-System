@@ -1,7 +1,7 @@
 <?php
 session_start();
 require_once 'auth.php';
-requireRole('assessor');
+requireRole(['lecturer', 'supervisor']); 
 require_once 'config.php';
 
 $conn = getConnection();
@@ -27,7 +27,7 @@ function get_initials($name) {
 }
 
 if ($user_id > 0) {
-    $stmt = $conn->prepare("SELECT full_name FROM users WHERE user_id = ? AND role = 'assessor' LIMIT 1");
+    $stmt = $conn->prepare("SELECT full_name FROM users WHERE user_id = ? AND role IN ('lecturer', 'supervisor') LIMIT 1");
     if ($stmt) {
         $stmt->bind_param("i", $user_id);
         if ($stmt->execute()) {
@@ -81,68 +81,12 @@ $avatar = get_initials($full_name);
   .nav-item:hover { color: var(--text); background: var(--surface2); }
   .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(79,142,247,0.07); }
 
-  /* admin dashboard style footer/logout */
-  .sidebar-footer {
-    margin-top: auto;
-    padding: 16px 20px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .sidebar-user {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    min-width: 0;
-  }
-
-  .avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: 700;
-    color: #fff;
-    flex-shrink: 0;
-  }
-
-  .user-name {
-    font-size: 12px;
-    font-weight: 500;
-    color: rgba(232, 234, 240, 0.55);
-    line-height: 1.3;
-    white-space: nowrap;
-  }
-
-  .logout-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px 14px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: transparent;
-    color: #ff6b6b;
-    font-size: 13px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.15s ease;
-    flex-shrink: 0;
-  }
-
-  .logout-btn:hover {
-    background: rgba(224, 85, 85, 0.08);
-    border-color: #e05555;
-    color: #ff7b7b;
-  }
+  .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .sidebar-user { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .user-name { font-size: 12px; font-weight: 500; color: rgba(232, 234, 240, 0.55); line-height: 1.3; white-space: nowrap; }
+  .logout-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 14px; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: #ff6b6b; font-size: 13px; font-weight: 600; text-decoration: none; transition: all 0.15s ease; flex-shrink: 0; }
+  .logout-btn:hover { background: rgba(224, 85, 85, 0.08); border-color: #e05555; color: #ff7b7b; }
 
   .main { margin-left: 220px; flex: 1; padding: 32px 36px; max-width: 900px; }
 
@@ -154,48 +98,12 @@ $avatar = get_initials($full_name);
   .page-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
   .page-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
-  .select-banner {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 20px 24px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
+  .select-banner { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .select-banner label { font-size: 12.5px; font-weight: 500; color: var(--muted); white-space: nowrap; }
-  .select-banner select {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: var(--font);
-    font-size: 13.5px;
-    padding: 9px 36px 9px 14px;
-    outline: none;
-    cursor: pointer;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    transition: border-color 0.15s;
-    min-width: 280px;
-    flex: 1;
-  }
+  .select-banner select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font); font-size: 13.5px; padding: 9px 36px 9px 14px; outline: none; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; transition: border-color 0.15s; min-width: 280px; flex: 1; }
   .select-banner select:focus { border-color: var(--accent); }
 
-  .student-info-card {
-    display: none;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px 24px;
-    margin-bottom: 20px;
-    align-items: center;
-    gap: 16px;
-  }
+  .student-info-card { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 24px; margin-bottom: 20px; align-items: center; gap: 16px; }
   .student-info-card.visible { display: flex; }
   .info-avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
   .info-name { font-size: 15px; font-weight: 600; }
@@ -205,18 +113,7 @@ $avatar = get_initials($full_name);
   .info-pill-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
   .info-pill-value { font-size: 13px; font-weight: 600; margin-top: 2px; }
 
-  .assessed-warning {
-    display: none;
-    align-items: center;
-    gap: 10px;
-    background: rgba(240,160,48,0.07);
-    border: 1px solid rgba(240,160,48,0.2);
-    border-radius: 8px;
-    padding: 12px 16px;
-    font-size: 12.5px;
-    color: var(--warning);
-    margin-bottom: 20px;
-  }
+  .assessed-warning { display: none; align-items: center; gap: 10px; background: rgba(240,160,48,0.07); border: 1px solid rgba(240,160,48,0.2); border-radius: 8px; padding: 12px 16px; font-size: 12.5px; color: var(--warning); margin-bottom: 20px; }
   .assessed-warning.visible { display: flex; }
 
   .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
@@ -227,76 +124,27 @@ $avatar = get_initials($full_name);
   .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
   .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-  .criteria-row {
-    display: grid;
-    grid-template-columns: 1fr 120px 80px;
-    align-items: center;
-    gap: 16px;
-    padding: 14px 0;
-    border-bottom: 1px solid var(--border);
-  }
+  .criteria-row { display: grid; grid-template-columns: 1fr 120px 80px; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border); }
   .criteria-row:last-child { border-bottom: none; }
 
   .criteria-name { font-size: 13.5px; font-weight: 600; }
   .criteria-desc { font-size: 12px; color: var(--muted); margin-top: 3px; }
-  .criteria-weight {
-    display: inline-block;
-    margin-top: 4px;
-    padding: 2px 8px;
-    border-radius: 99px;
-    font-size: 11px;
-    font-weight: 600;
-    background: rgba(79,142,247,0.1);
-    color: var(--accent);
-    font-family: var(--mono);
-  }
+  .criteria-weight { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; background: rgba(79,142,247,0.1); color: var(--accent); font-family: var(--mono); }
 
   .criteria-input-wrap { position: relative; }
-  .criteria-input-wrap input[type=number] {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 15px;
-    font-weight: 600;
-    padding: 9px 48px 9px 14px;
-    outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    -moz-appearance: textfield;
-  }
-  .criteria-input-wrap input[type=number]::-webkit-outer-spin-button,
-  .criteria-input-wrap input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .criteria-input-wrap input[type=number] { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--mono); font-size: 15px; font-weight: 600; padding: 9px 48px 9px 14px; outline: none; transition: border-color 0.15s, box-shadow 0.15s; -moz-appearance: textfield; }
+  .criteria-input-wrap input[type=number]::-webkit-outer-spin-button, .criteria-input-wrap input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
   .criteria-input-wrap input[type=number]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,0.12); }
   .criteria-input-wrap input.error { border-color: var(--danger); }
   .input-max { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; color: var(--muted); font-family: var(--mono); }
 
-  .criteria-score {
-    text-align: center;
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--muted);
-  }
+  .criteria-score { text-align: center; font-family: var(--mono); font-size: 13px; color: var(--muted); }
   .criteria-score .score-val { font-size: 16px; font-weight: 700; color: var(--text); }
   .criteria-score .score-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
 
-  .total-section {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 24px;
-    background: var(--surface2);
-  }
-
+  .total-section { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; background: var(--surface2); }
   .total-label { font-size: 13px; font-weight: 600; color: var(--muted); }
-  .total-value {
-    font-family: var(--mono);
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--accent);
-    transition: color 0.2s;
-  }
+  .total-value { font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--accent); transition: color 0.2s; }
   .total-value.good { color: var(--success); }
   .total-value.mid { color: var(--warning); }
   .total-value.poor { color: var(--danger); }
@@ -304,21 +152,7 @@ $avatar = get_initials($full_name);
   .total-bar-wrap { flex: 1; max-width: 300px; margin: 0 24px; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
   .total-bar { height: 100%; border-radius: 99px; background: var(--accent); transition: width 0.3s, background 0.3s; }
 
-  textarea {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: var(--font);
-    font-size: 13.5px;
-    padding: 10px 14px;
-    outline: none;
-    transition: border-color 0.15s;
-    width: 100%;
-    resize: vertical;
-    min-height: 100px;
-    line-height: 1.6;
-  }
+  textarea { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font); font-size: 13.5px; padding: 10px 14px; outline: none; transition: border-color 0.15s; width: 100%; resize: vertical; min-height: 100px; line-height: 1.6; }
   textarea::placeholder { color: var(--muted); }
   textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,0.12); }
 
@@ -353,12 +187,10 @@ $avatar = get_initials($full_name);
     <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
     Dashboard
   </a>
-
   <a class="nav-item active" href="result_entry.php">
     <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
     Enter Results
   </a>
-
   <a class="nav-item" href="assessor_view_results.php">
     <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     View Results
@@ -417,7 +249,6 @@ $avatar = get_initials($full_name);
   </div>
 
   <div class="form-card" id="formCard" style="display:none;">
-
     <div class="form-section">
       <div class="section-label">Assessment Criteria</div>
 
@@ -559,7 +390,7 @@ $avatar = get_initials($full_name);
       <div class="total-bar-wrap">
         <div class="total-bar" id="totalBar" style="width:0%"></div>
       </div>
-      <div class="total-value" id="totalDisplay">0.0 / 100.0</div>
+      <div class="total-value" id="totalDisplay">— / 100.0</div>
     </div>
 
     <div class="form-section">
@@ -577,7 +408,6 @@ $avatar = get_initials($full_name);
         Submit Result
       </button>
     </div>
-
   </div>
 
   <div class="form-card" id="emptyState">
@@ -602,6 +432,9 @@ $avatar = get_initials($full_name);
 </main>
 
 <script>
+  // Add a timestamp to permanently defeat caching
+  const FETCH_URL = 'get_my_students.php?t=' + new Date().getTime();
+
   const CRITERIA = [
     { id: 'undertaking', max: 10 },
     { id: 'health',      max: 10 },
@@ -616,8 +449,16 @@ $avatar = get_initials($full_name);
   let students = {};
   let selectedInternshipId = null;
 
+  // Extremely safe number checker
+  function safeNum(val) {
+    if (val === null || val === undefined || val === '') return null;
+    const num = parseFloat(val);
+    if (isNaN(num)) return null;
+    return num;
+  }
+
   function loadStudents() {
-    fetch('get_my_students.php')
+    fetch(FETCH_URL)
       .then(r => r.json())
       .then(rows => {
         const sel = document.getElementById('studentSelect');
@@ -669,7 +510,9 @@ $avatar = get_initials($full_name);
     document.getElementById('infoProgramme').textContent = s.programme;
     infoCard.classList.add('visible');
 
-    if (s.total_score !== null && s.total_score !== undefined && s.total_score !== '') {
+    const totalCheck = safeNum(s.total_score);
+
+    if (totalCheck !== null) {
       warning.classList.add('visible');
       prefillScores(s);
     } else {
@@ -697,7 +540,8 @@ $avatar = get_initials($full_name);
     };
     Object.entries(map).forEach(([key, val]) => {
       const el = document.getElementById('c_' + key);
-      if (el) el.value = (val !== null && val !== '') ? parseFloat(val).toFixed(1) : '';
+      const num = safeNum(val);
+      if (el) el.value = num !== null ? num.toFixed(1) : '';
     });
     document.getElementById('comments').value = a.comments || '';
   }
@@ -737,21 +581,28 @@ $avatar = get_initials($full_name);
     const bar     = document.getElementById('totalBar');
     const pct     = (total / 100) * 100;
 
-    display.textContent = total.toFixed(1) + ' / 100.0';
-    bar.style.width = pct + '%';
-
     display.className = 'total-value';
-    bar.style.background = 'var(--accent)';
+    
+    // Shows a perfect clean DASH if the form is empty, avoiding 0.0 or NaN
+    if (!anyFilled) {
+        display.textContent = '— / 100.0';
+        bar.style.width = '0%';
+        bar.style.background = 'var(--border)';
+    } else {
+        display.textContent = total.toFixed(1) + ' / 100.0';
+        bar.style.width = pct + '%';
+        bar.style.background = 'var(--accent)';
 
-    if (total >= 70) {
-      display.classList.add('good');
-      bar.style.background = 'var(--success)';
-    } else if (total >= 50) {
-      display.classList.add('mid');
-      bar.style.background = 'var(--warning)';
-    } else if (anyFilled) {
-      display.classList.add('poor');
-      bar.style.background = 'var(--danger)';
+        if (total >= 70) {
+          display.classList.add('good');
+          bar.style.background = 'var(--success)';
+        } else if (total >= 50) {
+          display.classList.add('mid');
+          bar.style.background = 'var(--warning)';
+        } else {
+          display.classList.add('poor');
+          bar.style.background = 'var(--danger)';
+        }
     }
   }
 
@@ -824,7 +675,7 @@ $avatar = get_initials($full_name);
 
     } catch (err) {
       console.error(err);
-      alert('Request failed. Please try again.');
+      alert('Network request failed. Ensure the database structure is correct.');
       document.getElementById('submitBtn').disabled = false;
       document.getElementById('submitBtn').innerHTML =
         `<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Submit Result`;
