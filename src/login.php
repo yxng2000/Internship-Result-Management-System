@@ -4,18 +4,26 @@ require_once 'config.php';
 
 $error = "";
 
-// if already logged in, redirect to respective dashboard
-if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
-    if ($_SESSION['role'] === 'admin') {
+function redirectByRole($role) {
+    if ($role === 'admin') {
         header("Location: admin_dashboard.php");
         exit();
-    } elseif ($_SESSION['role'] === 'assessor') {
+    }
+
+    if ($role === 'lecturer' || $role === 'supervisor') {
         header("Location: assessor_dashboard.php");
         exit();
-    } elseif ($_SESSION['role'] === 'student') {
+    }
+
+    if ($role === 'student') {
         header("Location: student_dashboard.php");
         exit();
     }
+}
+
+// if already logged in, redirect to respective dashboard
+if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
+    redirectByRole($_SESSION['role']);
 }
 
 // process login form submission
@@ -30,7 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($username === 'admin') {
             $isValidFormat = true;
-        } elseif (preg_match('/^as_\d{4}$/', $username)) {
+        } elseif (preg_match('/^lec_\d{4}$/', $username)) {
+            $isValidFormat = true;
+        } elseif (preg_match('/^sup_\d{4}$/', $username)) {
             $isValidFormat = true;
         } elseif (preg_match('/^S\d{4}$/', $username)) {
             $isValidFormat = true;
@@ -42,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn = getConnection();
 
             $stmt = $conn->prepare("
-                SELECT user_id, username, password, role, full_name, student_id, status
+                SELECT user_id, username, password, role, full_name, student_id, programme, company_name, status
                 FROM users
                 WHERE username = ?
                 LIMIT 1
@@ -64,19 +74,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['role'] = $user['role'];
                 $_SESSION['full_name'] = $user['full_name'];
                 $_SESSION['student_id'] = $user['student_id'];
+                $_SESSION['programme'] = $user['programme'];
+                $_SESSION['company_name'] = $user['company_name'];
 
-                if ($user['role'] === 'admin') {
-                    header("Location: admin_dashboard.php");
-                    exit();
-                } elseif ($user['role'] === 'assessor') {
-                    header("Location: assessor_dashboard.php");
-                    exit();
-                } elseif ($user['role'] === 'student') {
-                    header("Location: student_dashboard.php");
-                    exit();
-                } else {
-                    $error = "Invalid user role.";
-                }
+                redirectByRole($user['role']);
+                $error = "Invalid user role.";
             }
 
             $stmt->close();
@@ -246,6 +248,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       transform: translateY(-1px);
     }
 
+    .test-accounts {
+      margin-top: 18px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .test-accounts-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .test-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .test-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .test-role {
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .test-cred {
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height: 1.6;
+      word-break: break-word;
+    }
+
+    .test-cred span {
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11.5px;
+    }
+
     .login-footer {
       margin-top: 16px;
       text-align: center;
@@ -266,6 +318,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       .login-brand h1 {
         font-size: 24px;
+      }
+
+      .test-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -313,6 +369,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <button type="submit" class="login-btn">Sign In</button>
       </form>
+
+      <div class="test-accounts">
+        <div class="test-accounts-title">Test Accounts</div>
+        <div class="test-grid">
+          <div class="test-item">
+            <div class="test-role">Admin</div>
+            <div class="test-cred">Username: <span>admin</span></div>
+            <div class="test-cred">Password: <span>admin123</span></div>
+          </div>
+
+          <div class="test-item">
+            <div class="test-role">Lecturer</div>
+            <div class="test-cred">Username: <span>lec_1001</span></div>
+            <div class="test-cred">Password: <span>lina1234</span></div>
+          </div>
+
+          <div class="test-item">
+            <div class="test-role">Supervisor</div>
+            <div class="test-cred">Username: <span>sup_2001</span></div>
+            <div class="test-cred">Password: <span>intel123</span></div>
+          </div>
+
+          <div class="test-item">
+            <div class="test-role">Student</div>
+            <div class="test-cred">Username: <span>S0021</span></div>
+            <div class="test-cred">Password: <span>stud0021</span></div>
+          </div>
+        </div>
+      </div>
 
       <div class="login-footer">Secure access • Internship Result Management</div>
     </div>

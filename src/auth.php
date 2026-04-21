@@ -10,10 +10,14 @@ function requireLogin() {
     }
 }
 
-function requireRole($role) {
+function requireRole($allowedRoles) {
     requireLogin();
 
-    if ($_SESSION['role'] !== $role) {
+    if (!is_array($allowedRoles)) {
+        $allowedRoles = [$allowedRoles];
+    }
+
+    if (!in_array($_SESSION['role'], $allowedRoles, true)) {
         header("Location: login.php");
         exit();
     }

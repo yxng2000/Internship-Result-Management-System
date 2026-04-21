@@ -17,7 +17,7 @@ function get_dashboard_stats(mysqli $conn): array {
     return [
         'totalUsers' => scalar_query($conn, "SELECT COUNT(*) AS total FROM users"),
         'totalStudents' => scalar_query($conn, "SELECT COUNT(*) AS total FROM users WHERE role = 'student'"),
-        'totalAssessors' => scalar_query($conn, "SELECT COUNT(*) AS total FROM users WHERE role = 'assessor'"),
+        'totalAssessors' => scalar_query($conn, "SELECT COUNT(*) AS total FROM users WHERE role IN ('lecturer','supervisor')"),
         'totalAdmins' => scalar_query($conn, "SELECT COUNT(*) AS total FROM users WHERE role = 'admin'"),
         'unassignedCount' => scalar_query($conn, "SELECT COUNT(*) AS total FROM internships WHERE status = 'unassigned'"),
         'pendingCount' => scalar_query($conn, "SELECT COUNT(*) AS total FROM internships WHERE status = 'pending'"),
@@ -33,15 +33,15 @@ function get_attention_items(array $stats): array {
         [
             'title' => $unassigned . ' student' . ($unassigned === 1 ? '' : 's') . ' not assigned',
             'text' => $unassigned > 0
-                ? 'There ' . ($unassigned === 1 ? 'is' : 'are') . ' still ' . $unassigned . ' student' . ($unassigned === 1 ? '' : 's') . ' without an assessor or internship assignment.'
-                : 'All students currently have an assigned assessor and internship record.',
+                ? 'There ' . ($unassigned === 1 ? 'is' : 'are') . ' still ' . $unassigned . ' student' . ($unassigned === 1 ? '' : 's') . ' without an assigned lecturer/supervisor or internship assignment.'
+                : 'All students currently have an assigned lecturer/supervisor and internship record.',
             'tag' => $unassigned > 0 ? 'Needs action' : 'Resolved',
             'tagClass' => $unassigned > 0 ? 'tag-danger' : 'tag-success',
         ],
         [
             'title' => $pending . ' evaluation' . ($pending === 1 ? '' : 's') . ' pending',
             'text' => $pending > 0
-                ? 'Internship assessments are still waiting for assessor completion.'
+                ? 'Internship assessments are still waiting for lecturer/supervisor completion.'
                 : 'All current internship assessments have been completed.',
             'tag' => $pending > 0 ? 'Pending' : 'Completed',
             'tagClass' => $pending > 0 ? 'tag-pending' : 'tag-success',
@@ -91,10 +91,16 @@ function get_pending_evaluations(mysqli $conn, int $limit = 5): array {
         SELECT
             i.status,
             s.full_name AS student_name,
-            COALESCE(u.full_name, '-') AS assessor_name
+            CASE
+                WHEN l.full_name IS NOT NULL AND su.full_name IS NOT NULL THEN CONCAT(l.full_name, ' / ', su.full_name)
+                WHEN l.full_name IS NOT NULL THEN l.full_name
+                WHEN su.full_name IS NOT NULL THEN su.full_name
+                ELSE '-'
+            END AS assigned_staff_name
         FROM internships i
         JOIN students s ON i.student_id = s.student_id
-        LEFT JOIN users u ON i.assessor_id = u.user_id
+        LEFT JOIN users l ON i.lecturer_id = l.user_id
+        LEFT JOIN users su ON i.supervisor_id = su.user_id
         WHERE i.status IN ('pending', 'unassigned')
         ORDER BY FIELD(i.status, 'pending', 'unassigned'), i.updated_at DESC, i.internship_id DESC
         LIMIT ?
@@ -107,7 +113,7 @@ function get_pending_evaluations(mysqli $conn, int $limit = 5): array {
         while ($row = $result->fetch_assoc()) {
             $items[] = [
                 'student_name' => $row['student_name'],
-                'assessor_name' => $row['assessor_name'],
+                'assigned_staff_name' => $row['assigned_staff_name'],
                 'status' => $row['status'],
             ];
         }
@@ -580,7 +586,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
     </div>
 
     <div class="stat-card">
-      <div class="stat-label">Assessors</div>
+      <div class="stat-label">Lecturer + Supervisor</div>
       <div class="stat-value amber" id="stat-totalAssessors"><?php echo $stats['totalAssessors']; ?></div>
     </div>
 
@@ -617,12 +623,12 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
       <div class="quick-actions">
         <a class="quick-card" href="user_management.php">
           <h4>Manage Users</h4>
-          <p>Manage student, assessor, and admin accounts or update existing user information.</p>
+          <p>Manage student, lecturer, supervisor, and admin accounts or update existing user information.</p>
         </a>
 
         <a class="quick-card" href="add_user.php">
           <h4>Add New User</h4>
-          <p>Create a new student, assessor, or admin account directly from the user management module.</p>
+          <p>Create a new student, lecturer, supervisor, or admin account directly from the user management module.</p>
         </a>
 
         <a class="quick-card" href="internship_list.html">
@@ -698,7 +704,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
           <thead>
             <tr>
               <th>Student</th>
-              <th>Assessor</th>
+              <th>Assigned Staff</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -707,7 +713,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
               <?php foreach ($pendingEvaluations as $row): ?>
                 <tr>
                   <td><?php echo htmlspecialchars($row['student_name']); ?></td>
-                  <td><?php echo htmlspecialchars($row['assessor_name']); ?></td>
+                  <td><?php echo htmlspecialchars($row['assigned_staff_name']); ?></td>
                   <td>
                     <span class="status-badge <?php echo $row['status'] === 'unassigned' ? 'status-unassigned' : 'status-pending'; ?>">
                       <?php echo ucfirst(htmlspecialchars($row['status'])); ?>
@@ -772,7 +778,7 @@ function renderPendingEvaluations(items) {
     return `
       <tr>
         <td>${escapeHtml(item.student_name)}</td>
-        <td>${escapeHtml(item.assessor_name)}</td>
+        <td>${escapeHtml(item.assigned_staff_name)}</td>
         <td><span class="status-badge ${badgeClass}">${escapeHtml(statusText)}</span></td>
       </tr>
     `;
