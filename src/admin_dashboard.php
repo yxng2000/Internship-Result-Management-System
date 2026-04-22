@@ -350,8 +350,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
   .main {
     margin-left: 220px;
     flex: 1;
+    width: calc(100vw - 220px);
+    max-width: none;
     padding: 32px 36px;
-    max-width: 1220px;
+    box-sizing: border-box;
   }
 
   .page-header {
