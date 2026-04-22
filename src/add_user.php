@@ -26,67 +26,6 @@ function getInitials($name) {
     return $initials ?: 'AD';
 }
 
-$full_name = '';
-$role = '';
-$email = '';
-$status = 'active';
-$student_id = '';
-$programme = '';
-$assessor_username = '';
-$assessor_programme = '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $full_name = trim($_POST['full_name'] ?? '');
-    $role = trim($_POST['role'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $status = trim($_POST['status'] ?? 'active');
-    $password = trim($_POST['password'] ?? '');
-    $confirm_password = trim($_POST['confirm_password'] ?? '');
-    $student_id = strtoupper(trim($_POST['student_id'] ?? ''));
-    $programme = trim($_POST['programme'] ?? '');
-    $assessor_username = strtolower(trim($_POST['assessor_username'] ?? ''));
-    $assessor_programme = trim($_POST['assessor_programme'] ?? '');
-
-    if ($role === 'student') {
-        $assessor_username = '';
-        $assessor_programme = '';
-    } elseif ($role === 'assessor') {
-        $student_id = '';
-        $programme = '';
-    }
-
-    if ($full_name === '' || $role === '' || $email === '' || $status === '' || $password === '' || $confirm_password === '') {
-        $error = 'Please complete all required fields.';
-    } elseif (!in_array($role, ['student', 'assessor'])) {
-        $error = 'Invalid role selected.';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'Please enter a valid email address.';
-    } elseif (!in_array($status, ['active', 'inactive'])) {
-        $error = 'Invalid status selected.';
-    } elseif (strlen($password) < 8) {
-        $error = 'Password must be at least 8 characters.';
-    } elseif ($password !== $confirm_password) {
-        $error = 'Passwords do not match.';
-    } else {
-        if ($role === 'student') {
-            if ($student_id === '' || $programme === '') {
-                $error = 'Please complete all student fields.';
-            } elseif (!preg_match('/^S\d{4}$/', $student_id)) {
-                $error = 'Student ID must follow the format S0021.';
-            }
-        } elseif ($role === 'assessor') {
-            if ($assessor_username === '' || $assessor_programme === '') {
-                $error = 'Please complete all assessor fields.';
-            } elseif (!preg_match('/^as_\d{4}$/', $assessor_username)) {
-                $error = 'Assessor username must follow the format as_1001.';
-            }
-        }
-    }
-
-    if ($error === '') {
-        $conn = getConnection();
-
-
 function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $description, $linkUrl = null)
 {
     $actionType = mysqli_real_escape_string($conn, $actionType);
@@ -113,11 +52,66 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
     return mysqli_query($conn, $sql);
 }
 
+$full_name = '';
+$role = '';
+$email = '';
+$status = 'active';
+$student_id = '';
+$programme = '';
+$lecturer_username = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $full_name = trim($_POST['full_name'] ?? '');
+    $role = trim($_POST['role'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $status = trim($_POST['status'] ?? 'active');
+    $password = trim($_POST['password'] ?? '');
+    $confirm_password = trim($_POST['confirm_password'] ?? '');
+    $student_id = strtoupper(trim($_POST['student_id'] ?? ''));
+    $programme = trim($_POST['programme'] ?? '');
+    $lecturer_username = strtolower(trim($_POST['lecturer_username'] ?? ''));
+
+    if ($full_name === '' || $role === '' || $email === '' || $status === '' || $password === '' || $confirm_password === '') {
+        $error = 'Please complete all required fields.';
+    } elseif (!in_array($role, ['student', 'lecturer'], true)) {
+        $error = 'Invalid role selected.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Please enter a valid email address.';
+    } elseif (!in_array($status, ['active', 'inactive'], true)) {
+        $error = 'Invalid status selected.';
+    } elseif (strlen($password) < 8) {
+        $error = 'Password must be at least 8 characters.';
+    } elseif ($password !== $confirm_password) {
+        $error = 'Passwords do not match.';
+    } else {
+        if ($role === 'student') {
+            if ($student_id === '' || $programme === '') {
+                $error = 'Please complete all student fields.';
+            } elseif (!preg_match('/^S\d{4}$/', $student_id)) {
+                $error = 'Student ID must follow the format S0021.';
+            }
+        } elseif ($role === 'lecturer') {
+            if ($lecturer_username === '' || $programme === '') {
+                $error = 'Please complete all lecturer fields.';
+            } elseif (!preg_match('/^lec_\d{4}$/', $lecturer_username)) {
+                $error = 'Lecturer username must follow the format lec_1001.';
+            }
+        } elseif ($role === 'supervisor') {
+            if ($supervisor_username === '' || $company_name === '') {
+                $error = 'Please complete all supervisor fields.';
+            } elseif (!preg_match('/^sup_\d{4}$/', $supervisor_username)) {
+                $error = 'Supervisor username must follow the format sup_2001.';
+            }
+        }
+    }
+
+    if ($error === '') {
+        $conn = getConnection();
         $conn->begin_transaction();
 
         try {
-            $stmt = $conn->prepare("SELECT user_id FROM users WHERE email = ? LIMIT 1");
-            $stmt->bind_param("s", $email);
+            $stmt = $conn->prepare('SELECT user_id FROM users WHERE email = ? LIMIT 1');
+            $stmt->bind_param('s', $email);
             $stmt->execute();
             $existingEmail = $stmt->get_result()->fetch_assoc();
             $stmt->close();
@@ -127,12 +121,16 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
             }
 
             $hashedPassword = md5($password);
-            // Better security in real projects:
-            // $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+            $newUserId = null;
+            $username = null;
+            $insertRole = $role;
+            $insertProgramme = null;
+            $insertCompanyName = null;
+            $insertStudentId = null;
 
             if ($role === 'student') {
-                $stmt = $conn->prepare("SELECT student_id FROM students WHERE student_id = ? LIMIT 1");
-                $stmt->bind_param("s", $student_id);
+                $stmt = $conn->prepare('SELECT student_id FROM students WHERE student_id = ? LIMIT 1');
+                $stmt->bind_param('s', $student_id);
                 $stmt->execute();
                 $existingStudent = $stmt->get_result()->fetch_assoc();
                 $stmt->close();
@@ -141,8 +139,12 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
                     throw new Exception('This student ID already exists.');
                 }
 
-                $stmt = $conn->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
-                $stmt->bind_param("s", $student_id);
+                $username = $student_id;
+                $insertProgramme = $programme;
+                $insertStudentId = $student_id;
+
+                $stmt = $conn->prepare('SELECT user_id FROM users WHERE username = ? LIMIT 1');
+                $stmt->bind_param('s', $username);
                 $stmt->execute();
                 $existingUsername = $stmt->get_result()->fetch_assoc();
                 $stmt->close();
@@ -151,50 +153,60 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
                     throw new Exception('This username already exists.');
                 }
 
-                $stmt = $conn->prepare("
+                $stmt = $conn->prepare('
                     INSERT INTO students (student_id, full_name, programme, email, status)
                     VALUES (?, ?, ?, ?, ?)
-                ");
-                $stmt->bind_param("sssss", $student_id, $full_name, $programme, $email, $status);
+                ');
+                $stmt->bind_param('sssss', $student_id, $full_name, $programme, $email, $status);
                 $stmt->execute();
                 $stmt->close();
-
-                $stmt = $conn->prepare("
-                    INSERT INTO users (username, password, full_name, role, email, student_id, status, programme)
-                    VALUES (?, ?, ?, 'student', ?, ?, ?, ?)
-                ");
-                $stmt->bind_param("sssssss", $student_id, $hashedPassword, $full_name, $email, $student_id, $status, $programme);
-                $stmt->execute();
-                $newUserId = (int)$conn->insert_id;
-                $stmt->close();
+            } elseif ($role === 'lecturer') {
+                $username = $lecturer_username;
+                $insertProgramme = $programme;
+            } elseif ($role === 'supervisor') {
+                $username = $supervisor_username;
+                $insertCompanyName = $company_name;
+            } elseif ($role === 'admin') {
+                $username = $admin_username;
             }
 
-            if ($role === 'assessor') {
-                $stmt = $conn->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
-                $stmt->bind_param("s", $assessor_username);
+            if ($username !== null) {
+                $stmt = $conn->prepare('SELECT user_id FROM users WHERE username = ? LIMIT 1');
+                $stmt->bind_param('s', $username);
                 $stmt->execute();
                 $existingUsername = $stmt->get_result()->fetch_assoc();
                 $stmt->close();
 
                 if ($existingUsername) {
-                    throw new Exception('This assessor username already exists.');
+                    throw new Exception('This username already exists.');
                 }
-
-                $stmt = $conn->prepare("
-                    INSERT INTO users (username, password, full_name, role, email, student_id, status, programme)
-                    VALUES (?, ?, ?, 'assessor', ?, NULL, ?, ?)
-                ");
-                $stmt->bind_param("ssssss", $assessor_username, $hashedPassword, $full_name, $email, $status, $assessor_programme);
-                $stmt->execute();
-                $newUserId = (int)$conn->insert_id;
-                $stmt->close();
             }
+
+            $stmt = $conn->prepare('
+                INSERT INTO users (username, password, full_name, role, programme, company_name, email, student_id, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ');
+            $stmt->bind_param(
+                'sssssssss',
+                $username,
+                $hashedPassword,
+                $full_name,
+                $insertRole,
+                $insertProgramme,
+                $insertCompanyName,
+                $email,
+                $insertStudentId,
+                $status
+            );
+            $stmt->execute();
+            $newUserId = (int)$conn->insert_id;
+            $stmt->close();
 
             writeActivityLog(
                 $conn,
                 'add',
                 'user',
-                $newUserId ?? null,
+                $newUserId,
                 'New ' . ucfirst($role) . ' account created',
                 $full_name . ' was added to the system and is currently marked as ' . $status . '.',
                 'user_management.php'
@@ -202,7 +214,7 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
 
             $conn->commit();
             $_SESSION['success'] = 'User added successfully.';
-            header("Location: user_management.php");
+            header('Location: user_management.php');
             exit();
         } catch (Throwable $e) {
             $conn->rollback();
@@ -366,7 +378,7 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
     margin-left: 220px;
     flex: 1;
     padding: 32px 36px;
-    max-width: 980px;
+    max-width: 1040px;
   }
 
   .breadcrumb {
@@ -568,7 +580,7 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
 
   <div class="sidebar-footer">
     <div class="sidebar-user">
-      <div class="avatar">AD</div>
+      <div class="avatar"><?= h(getInitials($_SESSION['full_name'] ?? 'Admin User')) ?></div>
       <div class="user-name"><?= h($_SESSION['full_name'] ?? 'Admin User') ?></div>
     </div>
     <a href="logout.php" class="logout-btn">Log out</a>
@@ -586,11 +598,11 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
 
   <div class="page-header">
     <div class="page-title">Add User</div>
-    <div class="page-sub">Create a new student or assessor account</div>
+    <div class="page-sub">Create a new student or lecturer account</div>
   </div>
 
   <div class="alert alert-info">
-    Fill in the required details below. The role-specific section will update based on the selected user type.
+    Fill in the required details below. Only student and lecturer accounts can be created here.
   </div>
 
   <?php if ($error !== ''): ?>
@@ -613,7 +625,7 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
           <select id="role" name="role" required onchange="toggleRoleFields()">
             <option value="">Select role</option>
             <option value="student" <?= $role === 'student' ? 'selected' : '' ?>>Student</option>
-            <option value="assessor" <?= $role === 'assessor' ? 'selected' : '' ?>>Assessor</option>
+            <option value="lecturer" <?= $role === 'lecturer' ? 'selected' : '' ?>>Lecturer</option>
           </select>
         </div>
 
@@ -667,24 +679,26 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
         </div>
       </div>
 
-      <div class="role-panel" id="assessorFields">
+      <div class="role-panel" id="lecturerFields">
         <div class="form-grid">
           <div class="field">
-            <label for="assessor_username">Assessor Username <span class="required-star">*</span></label>
-            <input type="text" id="assessor_username" name="assessor_username" pattern="^as_\d{4}$" placeholder="e.g. as_1001" value="<?= h($assessor_username) ?>" oninput="this.value = this.value.toLowerCase()">
-            <div class="helper-text">Must follow the format as_XXXX.</div>
+            <label for="lecturer_username">Lecturer Username <span class="required-star">*</span></label>
+            <input type="text" id="lecturer_username" name="lecturer_username" pattern="^lec_\d{4}$" placeholder="e.g. lec_1001" value="<?= h($lecturer_username) ?>" oninput="this.value = this.value.toLowerCase()">
+            <div class="helper-text">Must follow the format lec_XXXX.</div>
           </div>
 
           <div class="field">
-            <label for="assessor_programme">Programme <span class="required-star">*</span></label>
-            <select id="assessor_programme" name="assessor_programme">
+            <label for="lecturer_programme">Programme <span class="required-star">*</span></label>
+            <select id="lecturer_programme" data-target-name="programme">
               <option value="">Select programme</option>
-              <option value="Engineering" <?= $assessor_programme === 'Engineering' ? 'selected' : '' ?>>Engineering</option>
-              <option value="Arts and Design" <?= $assessor_programme === 'Arts and Design' ? 'selected' : '' ?>>Arts and Design</option>
-              <option value="Computer Science" <?= $assessor_programme === 'Computer Science' ? 'selected' : '' ?>>Computer Science</option>
-              <option value="Finance" <?= $assessor_programme === 'Finance' ? 'selected' : '' ?>>Finance</option>
+              <option value="Engineering" <?= $role === 'lecturer' && $programme === 'Engineering' ? 'selected' : '' ?>>Engineering</option>
+              <option value="Arts and Design" <?= $role === 'lecturer' && $programme === 'Arts and Design' ? 'selected' : '' ?>>Arts and Design</option>
+              <option value="Computer Science" <?= $role === 'lecturer' && $programme === 'Computer Science' ? 'selected' : '' ?>>Computer Science</option>
+              <option value="Finance" <?= $role === 'lecturer' && $programme === 'Finance' ? 'selected' : '' ?>>Finance</option>
             </select>
           </div>
+        </div>
+      </div>
         </div>
       </div>
     </div>
@@ -703,109 +717,127 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
 </main>
 
 <script>
-  function toggleRoleFields() {
-    const role = document.getElementById("role").value;
-    const studentFields = document.getElementById("studentFields");
-    const assessorFields = document.getElementById("assessorFields");
-    const studentId = document.getElementById("student_id");
-    const programme = document.getElementById("programme");
-    const assessorUsername = document.getElementById("assessor_username");
-    const assessorProgramme = document.getElementById("assessor_programme");
+  function syncProgrammeField() {
+    const baseProgramme = document.getElementById('programme');
+    const lecturerProgramme = document.getElementById('lecturer_programme');
+    const role = document.getElementById('role').value;
 
-    studentFields.classList.remove("visible");
-    assessorFields.classList.remove("visible");
-
-    studentId.required = false;
-    programme.required = false;
-    assessorUsername.required = false;
-    assessorProgramme.required = false;
-
-    if (role === "student") {
-      studentFields.classList.add("visible");
-      studentId.required = true;
-      programme.required = true;
-    } else if (role === "assessor") {
-      assessorFields.classList.add("visible");
-      assessorUsername.required = true;
-      assessorProgramme.required = true;
+    if (role === 'lecturer' && lecturerProgramme) {
+      baseProgramme.value = lecturerProgramme.value;
+    } else if (role === 'student' && baseProgramme) {
+      if (lecturerProgramme) lecturerProgramme.value = baseProgramme.value;
+    } else if (lecturerProgramme) {
+      lecturerProgramme.value = '';
+      baseProgramme.value = '';
     }
   }
 
+  function toggleRoleFields() {
+    const role = document.getElementById('role').value;
+    const panels = {
+      student: document.getElementById('studentFields'),
+      lecturer: document.getElementById('lecturerFields')
+    };
+
+    Object.values(panels).forEach(panel => panel.classList.remove('visible'));
+
+    document.getElementById('student_id').required = false;
+    document.getElementById('programme').required = false;
+    document.getElementById('lecturer_username').required = false;
+    document.getElementById('lecturer_programme').required = false;
+
+    if (role === 'student') {
+      panels.student.classList.add('visible');
+      document.getElementById('student_id').required = true;
+      document.getElementById('programme').required = true;
+    } else if (role === 'lecturer') {
+      panels.lecturer.classList.add('visible');
+      document.getElementById('lecturer_username').required = true;
+      document.getElementById('programme').required = true;
+      document.getElementById('lecturer_programme').required = true;
+    }
+
+    syncProgrammeField();
+  }
+
   function showFormError(message) {
-    const box = document.getElementById("formErrorBox");
-    const passwordInput = document.getElementById("password");
-    const confirmPasswordInput = document.getElementById("confirm_password");
+    const box = document.getElementById('formErrorBox');
+    const passwordInput = document.getElementById('password');
+    const confirmPasswordInput = document.getElementById('confirm_password');
 
-    box.classList.remove("fade-out");
+    box.classList.remove('fade-out');
     box.textContent = message;
-    box.style.display = "block";
-    box.scrollIntoView({ behavior: "smooth", block: "center" });
+    box.style.display = 'block';
+    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-    if (passwordInput) passwordInput.value = "";
-    if (confirmPasswordInput) confirmPasswordInput.value = "";
+    if (passwordInput) passwordInput.value = '';
+    if (confirmPasswordInput) confirmPasswordInput.value = '';
 
     clearTimeout(box.hideTimer);
     clearTimeout(box.removeTimer);
 
     box.hideTimer = setTimeout(() => {
-      box.classList.add("fade-out");
+      box.classList.add('fade-out');
       box.removeTimer = setTimeout(() => {
-        box.style.display = "none";
-        box.classList.remove("fade-out");
-        box.textContent = "";
+        box.style.display = 'none';
+        box.classList.remove('fade-out');
+        box.textContent = '';
       }, 450);
-    }, 1500);
+    }, 1800);
   }
+
+  document.getElementById('programme').addEventListener('change', syncProgrammeField);
+  document.getElementById('lecturer_programme').addEventListener('change', syncProgrammeField);
 
   toggleRoleFields();
 
-  document.getElementById("addUserForm").addEventListener("submit", function(e) {
-    const role = document.getElementById("role").value;
-    const password = document.getElementById("password").value;
-    const confirmPassword = document.getElementById("confirm_password").value;
+  document.getElementById('addUserForm').addEventListener('submit', function(e) {
+    const role = document.getElementById('role').value;
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm_password').value;
 
     if (password.length < 8) {
       e.preventDefault();
-      showFormError("Password must be at least 8 characters.");
+      showFormError('Password must be at least 8 characters.');
       return;
     }
 
     if (password !== confirmPassword) {
       e.preventDefault();
-      showFormError("Passwords do not match.");
+      showFormError('Passwords do not match.');
       return;
     }
 
-    if (role === "student") {
-      const studentId = document.getElementById("student_id").value.trim();
-      const programme = document.getElementById("programme").value.trim();
+    if (role === 'student') {
+      const studentId = document.getElementById('student_id').value.trim();
+      const programme = document.getElementById('programme').value.trim();
 
       if (!studentId || !programme) {
         e.preventDefault();
-        showFormError("Please complete all student fields.");
+        showFormError('Please complete all student fields.');
         return;
       }
 
       if (!/^S\d{4}$/.test(studentId)) {
         e.preventDefault();
-        showFormError("Student ID must follow the format S0021.");
+        showFormError('Student ID must follow the format S0021.');
         return;
       }
     }
 
-    if (role === "assessor") {
-      const assessorUsername = document.getElementById("assessor_username").value.trim();
-      const assessorProgramme = document.getElementById("assessor_programme").value.trim();
+    if (role === 'lecturer') {
+      const lecturerUsername = document.getElementById('lecturer_username').value.trim();
+      const lecturerProgramme = document.getElementById('lecturer_programme').value.trim();
 
-      if (!assessorUsername || !assessorProgramme) {
+      if (!lecturerUsername || !lecturerProgramme) {
         e.preventDefault();
-        showFormError("Please complete all assessor fields.");
+        showFormError('Please complete all lecturer fields.');
         return;
       }
 
-      if (!/^as_\d{4}$/.test(assessorUsername)) {
+      if (!/^lec_\d{4}$/.test(lecturerUsername)) {
         e.preventDefault();
-        showFormError("Assessor username must follow the format as_1001.");
+        showFormError('Lecturer username must follow the format lec_1001.');
         return;
       }
     }
