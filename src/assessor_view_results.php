@@ -1,7 +1,7 @@
 <?php
 session_start();
 require_once 'auth.php';
-requireRole(['lecturer', 'supervisor']); // UPDATED
+requireRole(['lecturer', 'supervisor']);
 require_once 'config.php';
 
 $conn = getConnection();
@@ -148,10 +148,6 @@ $avatar = get_initials($full_name);
   .status-completed  { background: rgba(52,201,123,0.12); color: var(--success); }
   .status-pending    { background: rgba(240,160,48,0.12); color: var(--warning); }
 
-  .actions { display: flex; gap: 6px; }
-  .icon-btn { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
-  .icon-btn:hover { background: var(--surface2); color: var(--text); border-color: var(--text); }
-
   .score-bar-wrap { width: 80px; height: 4px; background: var(--border); border-radius: 99px; margin-top: 4px; }
   .score-bar { height: 4px; border-radius: 99px; }
 
@@ -228,15 +224,12 @@ $avatar = get_initials($full_name);
   <div class="page-header">
     <div>
       <div class="page-title">My Students' Results</div>
-      <div class="page-sub">View your scores, check if your partner has submitted, and see the final grade.</div>
+      <div class="page-sub">View your scores, check if your partner has submitted, and see the final grade. Click any row to view details.</div>
     </div>
-
-    <div style="display: flex; gap: 12px; align-items: center;">
-      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">
-        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Export CSV
-      </button>
-    </div>
+    <button class="btn btn-ghost btn-sm" onclick="exportCSV()">
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export CSV
+    </button>
   </div>
 
   <div class="stats-row">
@@ -281,7 +274,6 @@ $avatar = get_initials($full_name);
           <th>My Score</th>
           <th>Partner Status</th>
           <th>Final Grade</th>
-          <th>Actions</th>
         </tr>
       </thead>
       <tbody id="tableBody"></tbody>
@@ -295,6 +287,7 @@ $avatar = get_initials($full_name);
 
 </main>
 
+<!-- Detail Modal -->
 <div class="modal-backdrop" id="detailModal">
   <div class="modal">
     <div class="modal-header">
@@ -317,7 +310,7 @@ $avatar = get_initials($full_name);
         </div>
         <div class="modal-total">
           <div class="modal-total-val" id="m-total">—</div>
-          <div class="modal-total-label">Final Score / 100</div>
+          <div class="modal-total-label" id="m-total-label">Final Score / 100</div>
         </div>
       </div>
 
@@ -342,21 +335,19 @@ $avatar = get_initials($full_name);
 
   const CRITERIA_META = [
     { key: 'undertaking_tasks',     label: 'Undertaking Tasks',     max: 10, weight: '10%' },
-    { key: 'health_safety',         label: 'Health & Safety',        max: 10, weight: '10%' },
-    { key: 'theoretical_knowledge', label: 'Theoretical Knowledge',  max: 10, weight: '10%' },
-    { key: 'report_presentation',   label: 'Report & Presentation',  max: 15, weight: '15%' },
-    { key: 'clarity_language',      label: 'Clarity & Language',     max: 10, weight: '10%' },
-    { key: 'lifelong_learning',     label: 'Lifelong Learning',      max: 15, weight: '15%' },
-    { key: 'project_management',    label: 'Project Management',     max: 15, weight: '15%' },
-    { key: 'time_management',       label: 'Time Management',        max: 15, weight: '15%' },
+    { key: 'health_safety',         label: 'Health & Safety',       max: 10, weight: '10%' },
+    { key: 'theoretical_knowledge', label: 'Theoretical Knowledge', max: 10, weight: '10%' },
+    { key: 'report_presentation',   label: 'Report & Presentation', max: 15, weight: '15%' },
+    { key: 'clarity_language',      label: 'Clarity & Language',    max: 10, weight: '10%' },
+    { key: 'lifelong_learning',     label: 'Lifelong Learning',     max: 15, weight: '15%' },
+    { key: 'project_management',    label: 'Project Management',    max: 15, weight: '15%' },
+    { key: 'time_management',       label: 'Time Management',       max: 15, weight: '15%' },
   ];
 
-  // THE NAN KILLER: This guarantees missing variables become a clean null
   function safeNum(val) {
-      if (val === null || val === undefined || val === '') return null;
-      const num = parseFloat(val);
-      if (isNaN(num)) return null;
-      return num;
+    if (val === null || val === undefined || val === '') return null;
+    const num = parseFloat(val);
+    return isNaN(num) ? null : num;
   }
 
   function getGrade(score) {
@@ -405,37 +396,34 @@ $avatar = get_initials($full_name);
     let pendingPartnerCount = 0;
 
     data.forEach(r => {
-        const iHaveAssessed = safeNum(r.total_score) !== null;
-        const partnerHasAssessed = safeNum(r.other_total_score) !== null;
-        
-        if (iHaveAssessed) myAssessedCount++;
-        if (iHaveAssessed && partnerHasAssessed) fullyCompletedCount++;
-        if (iHaveAssessed && !partnerHasAssessed) pendingPartnerCount++;
+      const iHaveAssessed    = safeNum(r.total_score)       !== null;
+      const partnerHasAssessed = safeNum(r.other_total_score) !== null;
+      if (iHaveAssessed) myAssessedCount++;
+      if (iHaveAssessed && partnerHasAssessed)  fullyCompletedCount++;
+      if (iHaveAssessed && !partnerHasAssessed) pendingPartnerCount++;
     });
 
-    document.getElementById('stat-total').textContent          = data.length;
-    document.getElementById('stat-assessed').textContent       = myAssessedCount;
+    document.getElementById('stat-total').textContent           = data.length;
+    document.getElementById('stat-assessed').textContent        = myAssessedCount;
     document.getElementById('stat-pending-partner').textContent = pendingPartnerCount;
     document.getElementById('stat-fully-completed').textContent = fullyCompletedCount;
   }
 
   function getCustomStatus(r) {
-      const iHaveAssessed = safeNum(r.total_score) !== null;
-      const partnerHasAssessed = safeNum(r.other_total_score) !== null;
-      
-      if (iHaveAssessed && partnerHasAssessed) return 'completed';
-      if (iHaveAssessed && !partnerHasAssessed) return 'pending_partner';
-      return 'pending_me';
+    const iHaveAssessed      = safeNum(r.total_score)       !== null;
+    const partnerHasAssessed = safeNum(r.other_total_score) !== null;
+    if (iHaveAssessed && partnerHasAssessed)  return 'completed';
+    if (iHaveAssessed && !partnerHasAssessed) return 'pending_partner';
+    return 'pending_me';
   }
 
   function filteredData() {
     const q  = document.getElementById('searchInput').value.toLowerCase();
     const sf = document.getElementById('statusFilter').value;
-
     return data.filter(r => {
-      const matchQ  = (r.student_id || '').toLowerCase().includes(q) || (r.full_name || '').toLowerCase().includes(q);
-      const subStatus = getCustomStatus(r);
-      const matchS  = sf === 'all' || subStatus === sf;
+      const matchQ      = (r.student_id || '').toLowerCase().includes(q) || (r.full_name || '').toLowerCase().includes(q);
+      const subStatus   = getCustomStatus(r);
+      const matchS      = sf === 'all' || subStatus === sf;
       return matchQ && matchS;
     });
   }
@@ -455,20 +443,15 @@ $avatar = get_initials($full_name);
     } else {
       document.getElementById('noResults').style.display = 'none';
       tbody.innerHTML = slice.map(r => {
-        
-        // Use safeNum so NaN cannot exist
-        const myScoreValue = safeNum(r.total_score);
-        const myScore = myScoreValue !== null ? myScoreValue.toFixed(1) : null;
-        
+        const myScoreValue   = safeNum(r.total_score);
+        const myScore        = myScoreValue !== null ? myScoreValue.toFixed(1) : null;
         const partnerAssessed = safeNum(r.other_total_score) !== null;
-        
         const finalScoreValue = safeNum(r.final_score);
-        const finalScore = finalScoreValue !== null ? finalScoreValue.toFixed(1) : null;
-        
-        const grade = getGrade(r.final_score);
-        const scoreClass = getScoreClass(r.total_score);
-        const barPct = myScore ? Math.min(parseFloat(myScore), 100) : 0;
-        const barColor = getBarColor(barPct);
+        const finalScore      = finalScoreValue !== null ? finalScoreValue.toFixed(1) : null;
+        const grade           = getGrade(r.final_score);
+        const scoreClass      = getScoreClass(r.total_score);
+        const barPct          = myScore ? Math.min(parseFloat(myScore), 100) : 0;
+        const barColor        = getBarColor(barPct);
 
         return `
           <tr onclick='openModal(${JSON.stringify(r).replace(/'/g, "\\'")})'>
@@ -480,7 +463,6 @@ $avatar = get_initials($full_name);
             </td>
             <td>${r.programme || '—'}</td>
             <td>${r.company_name || '<span style="color:var(--muted);font-size:12px">—</span>'}</td>
-            
             <td>
               ${myScore !== null
                 ? `<div class="${scoreClass}" style="font-family:var(--mono);font-weight:700;">${myScore}</div>
@@ -488,26 +470,16 @@ $avatar = get_initials($full_name);
                 : `<span style="color:var(--muted);font-size:12px;">Pending</span>`
               }
             </td>
-            
             <td>
               <span class="status-badge ${partnerAssessed ? 'status-completed' : 'status-pending'}">
                 ${partnerAssessed ? 'Assessed' : 'Pending'}
               </span>
             </td>
-
             <td>
               ${finalScore !== null
                 ? `<div style="font-weight:700; font-family:var(--mono); font-size:15px; display:flex; align-items:center; gap:8px;">${finalScore} <span class="grade-badge grade-${grade}">${grade}</span></div>`
                 : `<span style="color:var(--muted);font-size:12px;">Awaiting Partner</span>`
               }
-            </td>
-
-            <td>
-              <div class="actions" onclick="event.stopPropagation()">
-                <button class="icon-btn" title="View detail" onclick='openModal(${JSON.stringify(r).replace(/'/g, "\\'")})'>
-                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                </button>
-              </div>
             </td>
           </tr>
         `;
@@ -515,7 +487,7 @@ $avatar = get_initials($full_name);
     }
 
     document.getElementById('pageInfo').textContent =
-      `Showing ${Math.min(total, (currentPage - 1) * ROWS_PER_PAGE + slice.length)} of ${total} records`;
+      `Showing ${total === 0 ? 0 : (currentPage-1)*ROWS_PER_PAGE+1}–${Math.min(currentPage*ROWS_PER_PAGE, total)} of ${total} records`;
 
     const pageBtns = document.getElementById('pageBtns');
     pageBtns.innerHTML = '';
@@ -530,48 +502,44 @@ $avatar = get_initials($full_name);
 
   function openModal(r) {
     const myScoreAssessed = safeNum(r.total_score) !== null;
-    const bothAssessed = safeNum(r.final_score) !== null;
+    const bothAssessed    = safeNum(r.final_score) !== null;
 
     const modalEditBtn = document.getElementById('modalEditBtn');
     modalEditBtn.style.display = 'inline-flex';
     modalEditBtn.onclick = () => {
       window.location.href = `result_entry.php?edit=${r.internship_id}`;
     };
-
-    if (myScoreAssessed) {
-      modalEditBtn.innerHTML = `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit Score`;
-    } else {
-      modalEditBtn.innerHTML = `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Enter Score`;
-    }
+    modalEditBtn.innerHTML = myScoreAssessed
+      ? `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit Score`
+      : `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Enter Score`;
 
     document.getElementById('m-avatar').textContent = getInitials(r.full_name);
     document.getElementById('m-name').textContent   = r.full_name || '—';
     document.getElementById('m-meta').textContent   = `${r.student_id || '—'} · ${r.programme || '—'} · ${r.company_name || '—'}`;
 
-    const totalEl = document.getElementById('m-total');
-    const totalLabelEl = document.querySelector('.modal-total-label');
+    const totalEl    = document.getElementById('m-total');
+    const totalLabel = document.getElementById('m-total-label');
 
     if (bothAssessed) {
       const fScore = parseFloat(r.final_score).toFixed(1);
       const fGrade = getGrade(r.final_score);
-      totalEl.textContent = fScore;
-      totalEl.className   = 'modal-total-val ' + getScoreClass(r.final_score);
-      totalLabelEl.textContent = `FINAL SCORE / 100  ·  Grade ${fGrade}`;
+      totalEl.textContent    = fScore;
+      totalEl.className      = 'modal-total-val ' + getScoreClass(r.final_score);
+      totalLabel.textContent = `FINAL SCORE / 100  ·  Grade ${fGrade}`;
     } else if (myScoreAssessed) {
-      const myScore = parseFloat(r.total_score).toFixed(1);
-      totalEl.textContent = myScore;
-      totalEl.className   = 'modal-total-val score-mid';
-      totalLabelEl.textContent = `YOUR SCORE (Awaiting Partner)`;
+      totalEl.textContent    = parseFloat(r.total_score).toFixed(1);
+      totalEl.className      = 'modal-total-val score-mid';
+      totalLabel.textContent = 'YOUR SCORE (Awaiting Partner)';
     } else {
-      totalEl.textContent = '—';
-      totalEl.className   = 'modal-total-val score-none';
-      totalLabelEl.textContent = 'Not yet assessed by anyone';
+      totalEl.textContent    = '—';
+      totalEl.className      = 'modal-total-val score-none';
+      totalLabel.textContent = 'Not yet assessed by anyone';
     }
 
     const breakdownEl = document.getElementById('m-breakdown');
     if (myScoreAssessed) {
       breakdownEl.innerHTML = CRITERIA_META.map(c => {
-        const val = safeNum(r[c.key]) || 0;
+        const val = safeNum(r[c.key]) ?? 0;
         const pct = (val / c.max) * 100;
         return `
           <div class="breakdown-row">
@@ -594,8 +562,7 @@ $avatar = get_initials($full_name);
 
     const commentsWrap = document.getElementById('m-comments-wrap');
     if (myScoreAssessed && r.comments) {
-      // Escape HTML to prevent strange formatting issues from user input
-      document.getElementById('m-comments').textContent = String(r.comments).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      document.getElementById('m-comments').textContent = r.comments;
       commentsWrap.style.display = 'block';
     } else {
       commentsWrap.style.display = 'none';
@@ -621,17 +588,16 @@ $avatar = get_initials($full_name);
 
   function exportCSV() {
     const rows = filteredData();
+    const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const header = ['Student ID', 'Name', 'Programme', 'Company', 'My Score', 'Partner Status', 'Final Score', 'Grade'];
-    const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-
     const lines = rows.map(r => [
       esc(r.student_id),
       esc(r.full_name),
       esc(r.programme),
       esc(r.company_name || ''),
-      esc(r.total_score || ''),
+      esc(safeNum(r.total_score) !== null ? r.total_score : ''),
       esc(safeNum(r.other_total_score) !== null ? 'Assessed' : 'Pending'),
-      esc(r.final_score || ''),
+      esc(safeNum(r.final_score) !== null ? r.final_score : ''),
       esc(getGrade(r.final_score) || '')
     ].join(','));
 

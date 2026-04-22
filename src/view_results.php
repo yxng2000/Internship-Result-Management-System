@@ -67,12 +67,11 @@ $conn->close();
   .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; }
   .stat-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
   .stat-value { font-size:26px; font-weight:700; font-family:var(--mono); }
-  .blue{color:var(--accent);} .green{color:var(--success);} .amber{color:var(--warning);} .purple{color:var(--accent2);} .red{color:#ff8d8d;}
+  .blue{color:var(--accent);} .green{color:var(--success);} .amber{color:var(--warning);} .purple{color:var(--accent2);}
   .toolbar { display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
   .search-wrap { position:relative; flex:1; min-width:200px; max-width:320px; }
   .search-wrap svg { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--muted); }
   .search-input { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); font-family:var(--font); font-size:13.5px; padding:9px 12px 9px 36px; outline:none; transition:border-color .15s; }
-  .search-input::placeholder { color:var(--muted); }
   .search-input:focus { border-color:var(--accent); }
   .filter-select { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); font-family:var(--font); font-size:13px; padding:9px 14px; outline:none; cursor:pointer; }
   .table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
@@ -84,7 +83,6 @@ $conn->close();
   tbody td { padding:12px 14px; vertical-align:middle; }
   .student-cell { display:flex; flex-direction:column; gap:2px; }
   .student-id { font-family:var(--mono); font-size:11px; color:var(--muted); }
-  .score-cell { font-family:var(--mono); font-weight:700; font-size:14px; }
   .score-high{color:var(--success);} .score-mid{color:var(--warning);} .score-low{color:var(--danger);} .score-none{color:var(--muted);}
   .grade-badge { display:inline-block; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:700; font-family:var(--mono); }
   .grade-A{background:rgba(52,201,123,.12);color:var(--success);} .grade-B{background:rgba(79,142,247,.12);color:var(--accent);}
@@ -94,10 +92,6 @@ $conn->close();
   .dot { width:7px; height:7px; border-radius:50%; }
   .dot-done { background:var(--success); }
   .dot-pending { background:var(--warning); }
-  .dot-none { background:var(--muted); }
-  .actions { display:flex; gap:6px; }
-  .icon-btn { width:30px; height:30px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .15s; }
-  .icon-btn:hover { background:var(--surface2); color:var(--text); border-color:var(--text); }
   .no-results { text-align:center; padding:48px 16px; color:var(--muted); font-size:14px; display:none; }
   .pagination { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-top:1px solid var(--border); font-size:12.5px; color:var(--muted); }
   .page-btns { display:flex; gap:6px; }
@@ -107,7 +101,7 @@ $conn->close();
   /* Modal */
   .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:200; align-items:center; justify-content:center; padding:24px; }
   .modal-backdrop.visible { display:flex; }
-  .modal { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); width:100%; max-width:680px; max-height:90vh; overflow-y:auto; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); width:100%; max-width:720px; max-height:90vh; overflow-y:auto; }
   .modal-header { display:flex; align-items:center; justify-content:space-between; padding:20px 24px; border-bottom:1px solid var(--border); }
   .modal-title { font-size:16px; font-weight:700; }
   .modal-close { background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:18px; }
@@ -232,7 +226,7 @@ $conn->close();
         </div>
         <div class="modal-final">
           <div class="modal-final-val" id="m-final">—</div>
-          <div class="modal-final-label">Final Score / 100</div>
+          <div class="modal-final-label" id="m-final-label">Final Score / 100</div>
         </div>
       </div>
       <div class="dual-grid" id="m-dual"></div>
@@ -247,27 +241,36 @@ const ROWS_PER_PAGE = 10;
 let currentPage = 1;
 let data = [];
 
+// Criteria definitions — keys match the JSON from get_results.php
+// Lecturer keys: l_undertaking_tasks, l_health_safety, etc.
+// Supervisor keys: s_undertaking_tasks, s_health_safety, etc.
 const CRITERIA = [
-  { key:'undertaking_tasks',     label:'Undertaking Tasks',     max:10 },
-  { key:'health_safety',         label:'Health & Safety',        max:10 },
-  { key:'theoretical_knowledge', label:'Theoretical Knowledge',  max:10 },
-  { key:'report_presentation',   label:'Report & Presentation',  max:15 },
-  { key:'clarity_language',      label:'Clarity & Language',     max:10 },
-  { key:'lifelong_learning',     label:'Lifelong Learning',      max:15 },
-  { key:'project_management',    label:'Project Management',     max:15 },
-  { key:'time_management',       label:'Time Management',        max:15 },
+  { label:'Undertaking Tasks',     max:10,  lKey:'l_undertaking_tasks',     sKey:'s_undertaking_tasks'     },
+  { label:'Health & Safety',       max:10,  lKey:'l_health_safety',         sKey:'s_health_safety'         },
+  { label:'Theoretical Knowledge', max:10,  lKey:'l_theoretical_knowledge', sKey:'s_theoretical_knowledge' },
+  { label:'Report & Presentation', max:15,  lKey:'l_report_presentation',   sKey:'s_report_presentation'   },
+  { label:'Clarity & Language',    max:10,  lKey:'l_clarity_language',      sKey:'s_clarity_language'      },
+  { label:'Lifelong Learning',     max:15,  lKey:'l_lifelong_learning',     sKey:'s_lifelong_learning'     },
+  { label:'Project Management',    max:15,  lKey:'l_project_management',    sKey:'s_project_management'    },
+  { label:'Time Management',       max:15,  lKey:'l_time_management',       sKey:'s_time_management'       },
 ];
 
+function safeNum(val) {
+  if (val === null || val === undefined || val === '') return null;
+  const n = parseFloat(val);
+  return isNaN(n) ? null : n;
+}
+
 function getGrade(score) {
-  if (score === null || score === undefined || score === '') return null;
-  const s = parseFloat(score);
+  const s = safeNum(score);
+  if (s === null) return null;
   if (s >= 80) return 'A'; if (s >= 70) return 'B';
   if (s >= 60) return 'C'; if (s >= 50) return 'D'; return 'F';
 }
 
 function getScoreClass(score) {
-  if (score === null || score === '') return 'score-none';
-  const s = parseFloat(score);
+  const s = safeNum(score);
+  if (s === null) return 'score-none';
   if (s >= 70) return 'score-high'; if (s >= 50) return 'score-mid'; return 'score-low';
 }
 
@@ -291,13 +294,16 @@ function updateStats() {
   let both = 0, lect = 0, sup = 0;
   const scores = [];
   data.forEach(r => {
-    const hasL = r.lecturer_score !== null;
-    const hasS = r.supervisor_score !== null;
+    const hasL = safeNum(r.lecturer_score) !== null;
+    const hasS = safeNum(r.supervisor_score) !== null;
     if (hasL) lect++;
     if (hasS) sup++;
-    if (hasL && hasS) { both++; scores.push(r.total_score); }
+    if (hasL && hasS) { both++; scores.push(safeNum(r.total_score)); }
   });
-  const avg = scores.length ? (scores.reduce((a,b)=>a+parseFloat(b),0)/scores.length).toFixed(1) : '—';
+  const validScores = scores.filter(s => s !== null);
+  const avg = validScores.length
+    ? (validScores.reduce((a, b) => a + b, 0) / validScores.length).toFixed(1)
+    : '—';
   document.getElementById('stat-total').textContent = data.length;
   document.getElementById('stat-both').textContent  = both;
   document.getElementById('stat-lect').textContent  = lect;
@@ -306,8 +312,8 @@ function updateStats() {
 }
 
 function getSubmissionStatus(r) {
-  const hasL = r.lecturer_score !== null;
-  const hasS = r.supervisor_score !== null;
+  const hasL = safeNum(r.lecturer_score) !== null;
+  const hasS = safeNum(r.supervisor_score) !== null;
   if (hasL && hasS) return 'both';
   if (hasL || hasS) return 'partial';
   return 'none';
@@ -317,7 +323,6 @@ function filteredData() {
   const q  = document.getElementById('searchInput').value.toLowerCase();
   const sf = document.getElementById('statusFilter').value;
   const gf = document.getElementById('gradeFilter').value;
-
   return data.filter(r => {
     const matchQ = (r.student_id||'').toLowerCase().includes(q) || (r.full_name||'').toLowerCase().includes(q);
     const sub = getSubmissionStatus(r);
@@ -347,9 +352,9 @@ function render() {
   } else {
     document.getElementById('noResults').style.display = 'none';
     tbody.innerHTML = slice.map(r => {
-      const hasL = r.lecturer_score !== null;
-      const hasS = r.supervisor_score !== null;
-      const hasFinal = r.total_score !== null;
+      const hasL = safeNum(r.lecturer_score) !== null;
+      const hasS = safeNum(r.supervisor_score) !== null;
+      const hasFinal = safeNum(r.total_score) !== null;
       const score = hasFinal ? parseFloat(r.total_score).toFixed(2) : null;
       const grade = getGrade(r.total_score);
       const safeR = JSON.stringify(r).replace(/'/g, "\\'");
@@ -370,7 +375,7 @@ function render() {
   }
 
   document.getElementById('pageInfo').textContent =
-    `Showing ${Math.min(total,(currentPage-1)*ROWS_PER_PAGE+slice.length)} of ${total} records`;
+    `Showing ${total === 0 ? 0 : (currentPage-1)*ROWS_PER_PAGE+1}–${Math.min(currentPage*ROWS_PER_PAGE, total)} of ${total} records`;
 
   const pageBtns = document.getElementById('pageBtns');
   pageBtns.innerHTML = '';
@@ -383,25 +388,35 @@ function render() {
   }
 }
 
-function buildAssessorPanel(r, prefix, title, cls, nameField) {
-  const score = r[prefix + 'score'];
+// ---------------------------------------------------------------
+// Build one assessor panel for the modal.
+// scoreKey  : the JSON key for the total score  e.g. 'lecturer_score'
+// criteriaPrefix: 'l_' or 's_'  (used with CRITERIA[i].lKey / sKey)
+// commentKey: the JSON key for comments          e.g. 'lecturer_comments'
+// ---------------------------------------------------------------
+function buildAssessorPanel(r, scoreKey, criteriaKeys, commentKey, title, cls, assessorName) {
+  const score = safeNum(r[scoreKey]);
+
   if (score === null) {
     return `<div class="assessor-panel">
       <div class="assessor-panel-title ${cls}">${title}</div>
       <div class="not-submitted">Not submitted yet</div>
     </div>`;
   }
+
   const rows = CRITERIA.map(c => {
-    const val = parseFloat(r[prefix.replace('_score','') + c.key] || 0);
+    const valKey = criteriaKeys === 'l' ? c.lKey : c.sKey;
+    const val = safeNum(r[valKey]) ?? 0;
     return `<div class="breakdown-row-sm">
       <span>${c.label} <span style="color:var(--muted)">(${c.max})</span></span>
       <span class="breakdown-score-sm">${val.toFixed(1)}</span>
     </div>`;
   }).join('');
-  const comment = r[prefix.replace('score','comments')];
+
+  const comment = r[commentKey];
   return `<div class="assessor-panel">
-    <div class="assessor-panel-title ${cls}">${title} — ${r[nameField] || '—'}</div>
-    <div class="assessor-total" style="color:var(--${cls==='lect'?'accent':'warning'})">${parseFloat(score).toFixed(2)} / 100</div>
+    <div class="assessor-panel-title ${cls}">${title} — ${assessorName || '—'}</div>
+    <div class="assessor-total" style="color:var(--${cls==='lect'?'accent':'warning'})">${score.toFixed(2)} / 100</div>
     ${rows}
     ${comment ? `<div class="comment-box">"${comment}"</div>` : ''}
   </div>`;
@@ -412,21 +427,24 @@ function openModal(r) {
   document.getElementById('m-name').textContent   = r.full_name;
   document.getElementById('m-meta').textContent   = `${r.student_id} · ${r.programme} · ${r.company_name || '—'}`;
 
-  const finalEl = document.getElementById('m-final');
-  if (r.total_score !== null) {
-    finalEl.textContent = parseFloat(r.total_score).toFixed(2);
-    finalEl.style.color = 'var(--success)';
-    document.querySelector('.modal-final-label').textContent =
-      `Final Score / 100 · Grade ${getGrade(r.total_score)}`;
+  const finalEl    = document.getElementById('m-final');
+  const finalLabel = document.getElementById('m-final-label');
+  const finalScore = safeNum(r.total_score);
+
+  if (finalScore !== null) {
+    finalEl.textContent  = finalScore.toFixed(2);
+    finalEl.style.color  = 'var(--success)';
+    finalLabel.textContent = `Final Score / 100 · Grade ${getGrade(r.total_score)}`;
   } else {
-    finalEl.textContent = '—';
-    finalEl.style.color = 'var(--muted)';
-    document.querySelector('.modal-final-label').textContent = 'Awaiting both assessors';
+    finalEl.textContent  = '—';
+    finalEl.style.color  = 'var(--muted)';
+    finalLabel.textContent = 'Awaiting both assessors';
   }
 
+  // Use explicit key names that match get_results.php output exactly
   document.getElementById('m-dual').innerHTML =
-    buildAssessorPanel(r, 'l_', 'Lecturer', 'lect', 'lecturer_name') +
-    buildAssessorPanel(r, 's_', 'Supervisor', 'sup', 'supervisor_name');
+    buildAssessorPanel(r, 'lecturer_score',  'l', 'lecturer_comments',  'Lecturer',   'lect', r.lecturer_name)  +
+    buildAssessorPanel(r, 'supervisor_score', 's', 'supervisor_comments', 'Supervisor', 'sup',  r.supervisor_name);
 
   document.getElementById('detailModal').classList.add('visible');
 }
@@ -451,9 +469,9 @@ function exportCSV() {
   const header = ['Student ID','Name','Programme','Company','Lecturer','Lecturer Score','Supervisor','Supervisor Score','Final Score','Grade'];
   const lines = rows.map(r => [
     esc(r.student_id), esc(r.full_name), esc(r.programme), esc(r.company_name||''),
-    esc(r.lecturer_name||''), esc(r.lecturer_score!==null?r.lecturer_score:''),
-    esc(r.supervisor_name||''), esc(r.supervisor_score!==null?r.supervisor_score:''),
-    esc(r.total_score!==null?r.total_score:''), esc(getGrade(r.total_score)||'')
+    esc(r.lecturer_name||''),  esc(safeNum(r.lecturer_score)  !== null ? r.lecturer_score  : ''),
+    esc(r.supervisor_name||''), esc(safeNum(r.supervisor_score) !== null ? r.supervisor_score : ''),
+    esc(safeNum(r.total_score) !== null ? r.total_score : ''), esc(getGrade(r.total_score)||'')
   ].join(','));
   const csv = [header.map(esc).join(','), ...lines].join('\n');
   const a = document.createElement('a');
