@@ -1,0 +1,688 @@
+<?php
+session_start();
+require_once 'auth.php';
+requireRole(['lecturer', 'supervisor']); 
+require_once 'config.php';
+
+$conn = getConnection();
+
+$user_id = (int)($_SESSION['user_id'] ?? 0);
+$full_name = $_SESSION['full_name'] ?? 'Assessor User';
+
+function e($value) {
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+}
+
+function get_initials($name) {
+    $name = preg_replace('/\b(Dr|Prof|Mr|Mrs|Ms|Miss)\.?\s*/i', '', trim($name));
+    $parts = preg_split('/\s+/', trim($name));
+    $initials = '';
+    foreach ($parts as $part) {
+        if ($part !== '') {
+            $initials .= strtoupper(substr($part, 0, 1));
+        }
+        if (strlen($initials) >= 2) break;
+    }
+    return $initials ?: 'AU';
+}
+
+if ($user_id > 0) {
+    $stmt = $conn->prepare("SELECT full_name FROM users WHERE user_id = ? AND role IN ('lecturer', 'supervisor') LIMIT 1");
+    if ($stmt) {
+        $stmt->bind_param("i", $user_id);
+        if ($stmt->execute()) {
+            $result = $stmt->get_result();
+            if ($row = $result->fetch_assoc()) {
+                if (!empty($row['full_name'])) {
+                    $full_name = $row['full_name'];
+                }
+            }
+        }
+        $stmt->close();
+    }
+}
+
+$avatar = get_initials($full_name);
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enter Result — Internship Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0e0f13;
+    --surface:   #16181f;
+    --surface2:  #1e2029;
+    --border:    #2a2d38;
+    --accent:    #4f8ef7;
+    --accent2:   #7c6af7;
+    --text:      #e8eaf0;
+    --muted:     #6b7080;
+    --success:   #34c97b;
+    --warning:   #f0a030;
+    --danger:    #e05555;
+    --radius:    10px;
+    --font:      'Syne', sans-serif;
+    --mono:      'DM Mono', monospace;
+  }
+
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
+
+  .sidebar { width: 220px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 0; position: fixed; top: 0; left: 0; bottom: 0; }
+  .logo { font-size: 15px; font-weight: 700; letter-spacing: 0.06em; color: var(--accent); padding: 0 20px 28px; border-bottom: 1px solid var(--border); margin-bottom: 16px; text-transform: uppercase; }
+  .logo span { color: var(--text); }
+  .nav-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); padding: 0 20px 8px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; font-size: 13.5px; font-weight: 500; color: var(--muted); cursor: pointer; border-left: 3px solid transparent; transition: all 0.15s; text-decoration: none; }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(79,142,247,0.07); }
+
+  .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .sidebar-user { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .user-name { font-size: 12px; font-weight: 500; color: rgba(232, 234, 240, 0.55); line-height: 1.3; white-space: nowrap; }
+  .logout-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 14px; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: #ff6b6b; font-size: 13px; font-weight: 600; text-decoration: none; transition: all 0.15s ease; flex-shrink: 0; }
+  .logout-btn:hover { background: rgba(224, 85, 85, 0.08); border-color: #e05555; color: #ff7b7b; }
+
+  .main { margin-left: 220px; flex: 1; padding: 32px 36px; max-width: 900px; }
+
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); margin-bottom: 20px; }
+  .breadcrumb a { color: var(--muted); text-decoration: none; transition: color 0.15s; }
+  .breadcrumb a:hover { color: var(--text); }
+
+  .page-header { margin-bottom: 24px; }
+  .page-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  .page-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  .select-banner { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .select-banner label { font-size: 12.5px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+  .select-banner select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font); font-size: 13.5px; padding: 9px 36px 9px 14px; outline: none; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; transition: border-color 0.15s; min-width: 280px; flex: 1; }
+  .select-banner select:focus { border-color: var(--accent); }
+
+  .student-info-card { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 24px; margin-bottom: 20px; align-items: center; gap: 16px; }
+  .student-info-card.visible { display: flex; }
+  .info-avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .info-name { font-size: 15px; font-weight: 600; }
+  .info-meta { font-size: 12px; color: var(--muted); margin-top: 3px; font-family: var(--mono); }
+  .info-right { margin-left: auto; display: flex; gap: 20px; }
+  .info-pill { text-align: right; }
+  .info-pill-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .info-pill-value { font-size: 13px; font-weight: 600; margin-top: 2px; }
+
+  .assessed-warning { display: none; align-items: center; gap: 10px; background: rgba(240,160,48,0.07); border: 1px solid rgba(240,160,48,0.2); border-radius: 8px; padding: 12px 16px; font-size: 12.5px; color: var(--warning); margin-bottom: 20px; }
+  .assessed-warning.visible { display: flex; }
+
+  .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+
+  .form-section { padding: 22px 24px; border-bottom: 1px solid var(--border); }
+  .form-section:last-of-type { border-bottom: none; }
+
+  .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .criteria-row { display: grid; grid-template-columns: 1fr 120px 80px; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .criteria-row:last-child { border-bottom: none; }
+
+  .criteria-name { font-size: 13.5px; font-weight: 600; }
+  .criteria-desc { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .criteria-weight { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; background: rgba(79,142,247,0.1); color: var(--accent); font-family: var(--mono); }
+
+  .criteria-input-wrap { position: relative; }
+  .criteria-input-wrap input[type=number] { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--mono); font-size: 15px; font-weight: 600; padding: 9px 48px 9px 14px; outline: none; transition: border-color 0.15s, box-shadow 0.15s; -moz-appearance: textfield; }
+  .criteria-input-wrap input[type=number]::-webkit-outer-spin-button, .criteria-input-wrap input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .criteria-input-wrap input[type=number]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,0.12); }
+  .criteria-input-wrap input.error { border-color: var(--danger); }
+  .input-max { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+  .criteria-score { text-align: center; font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .criteria-score .score-val { font-size: 16px; font-weight: 700; color: var(--text); }
+  .criteria-score .score-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .total-section { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; background: var(--surface2); }
+  .total-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+  .total-value { font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--accent); transition: color 0.2s; }
+  .total-value.good { color: var(--success); }
+  .total-value.mid { color: var(--warning); }
+  .total-value.poor { color: var(--danger); }
+
+  .total-bar-wrap { flex: 1; max-width: 300px; margin: 0 24px; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .total-bar { height: 100%; border-radius: 99px; background: var(--accent); transition: width 0.3s, background 0.3s; }
+
+  textarea { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font); font-size: 13.5px; padding: 10px 14px; outline: none; transition: border-color 0.15s; width: 100%; resize: vertical; min-height: 100px; line-height: 1.6; }
+  textarea::placeholder { color: var(--muted); }
+  textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,0.12); }
+
+  .form-footer { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; background: var(--surface2); border-top: 1px solid var(--border); }
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 20px; border-radius: var(--radius); font-family: var(--font); font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; text-decoration: none; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #3d7ef5; }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--text); }
+
+  .success-overlay { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 56px 24px; text-align: center; }
+  .success-overlay.visible { display: flex; }
+  .success-icon { width: 56px; height: 56px; border-radius: 50%; background: rgba(52,201,123,0.12); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+  .success-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .success-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+  .success-actions { display: flex; gap: 10px; }
+
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 24px; text-align: center; color: var(--muted); }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+  .empty-text { font-size: 14px; }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="logo">IRM<span>sys</span></div>
+  <div class="nav-label">Assessor Panel</div>
+
+  <a class="nav-item" href="assessor_dashboard.php">
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Dashboard
+  </a>
+  <a class="nav-item active" href="result_entry.php">
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    Enter Results
+  </a>
+  <a class="nav-item" href="assessor_view_results.php">
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    View Results
+  </a>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="avatar"><?= e($avatar) ?></div>
+      <div class="user-name"><?= e($full_name) ?></div>
+    </div>
+    <a href="logout.php" class="logout-btn">Logout</a>
+  </div>
+</nav>
+
+<main class="main">
+
+  <div class="breadcrumb">
+    <a href="assessor_dashboard.php">Dashboard</a>
+    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    <span>Enter Result</span>
+  </div>
+
+  <div class="page-header">
+    <div class="page-title">Enter Assessment Result</div>
+    <div class="page-sub">Score each criterion and submit the final evaluation for a student</div>
+  </div>
+
+  <div class="select-banner">
+    <label for="studentSelect">Select Student</label>
+    <select id="studentSelect" onchange="onStudentChange()">
+      <option value="">— Select an assigned student —</option>
+    </select>
+  </div>
+
+  <div class="student-info-card" id="studentInfoCard">
+    <div class="info-avatar" id="infoAvatar">--</div>
+    <div>
+      <div class="info-name" id="infoName">—</div>
+      <div class="info-meta" id="infoMeta">—</div>
+    </div>
+    <div class="info-right">
+      <div class="info-pill">
+        <div class="info-pill-label">Company</div>
+        <div class="info-pill-value" id="infoCompany">—</div>
+      </div>
+      <div class="info-pill">
+        <div class="info-pill-label">Programme</div>
+        <div class="info-pill-value" id="infoProgramme">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="assessed-warning" id="assessedWarning">
+    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    This student already has a submitted result. Submitting again will overwrite the previous record.
+  </div>
+
+  <div class="form-card" id="formCard" style="display:none;">
+    <div class="form-section">
+      <div class="section-label">Assessment Criteria</div>
+
+      <div class="criteria-row">
+        <div class="criteria-info">
+          <div class="criteria-name">Undertaking Tasks</div>
+          <div class="criteria-desc">Ability to perform assigned duties and tasks effectively</div>
+          <span class="criteria-weight">10%</span>
+        </div>
+        <div class="criteria-input-wrap">
+          <input type="number" id="c_undertaking" min="0" max="10" step="0.5" placeholder="0.0" oninput="calcTotal()">
+          <span class="input-max">/ 10.0</span>
+        </div>
+        <div class="criteria-score" id="s_undertaking">
+          <div class="score-val">—</div>
+          <div class="score-label">pts</div>
+        </div>
+      </div>
+
+      <div class="criteria-row">
+        <div class="criteria-info">
+          <div class="criteria-name">Health &amp; Safety</div>
+          <div class="criteria-desc">Adherence to workplace health and safety practices</div>
+          <span class="criteria-weight">10%</span>
+        </div>
+        <div class="criteria-input-wrap">
+          <input type="number" id="c_health" min="0" max="10" step="0.5" placeholder="0.0" oninput="calcTotal()">
+          <span class="input-max">/ 10.0</span>
+        </div>
+        <div class="criteria-score" id="s_health">
+          <div class="score-val">—</div>
+          <div class="score-label">pts</div>
+        </div>
+      </div>
+
+      <div class="criteria-row">
+        <div class="criteria-info">
+          <div class="criteria-name">Theoretical Knowledge</div>
+          <div class="criteria-desc">Application of academic knowledge in the workplace</div>
+          <span class="criteria-weight">10%</span>
+        </div>
+        <div class="criteria-input-wrap">
+          <input type="number" id="c_theoretical" min="0" max="10" step="0.5" placeholder="0.0" oninput="calcTotal()">
+          <span class="input-max">/ 10.0</span>
+        </div>
+        <div class="criteria-score" id="s_theoretical">
+          <div class="score-val">—</div>
+          <div class="score-label">pts</div>
+        </div>
+      </div>
+
+      <div class="criteria-row">
+        <div class="criteria-info">
+          <div class="criteria-name">Report &amp; Presentation</div>
+          <div class="criteria-desc">Quality of internship report and presentation skills</div>
+          <span class="criteria-weight">15%</span>
+        </div>
+        <div class="criteria-input-wrap">
+          <input type="number" id="c_report" min="0" max="15" step="0.5" placeholder="0.0" oninput="calcTotal()">
+          <span class="input-max">/ 15.0</span>
+        </div>
+        <div class="criteria-score" id="s_report">
+          <div class="score-val">—</div>
+          <div class="score-label">pts</div>
+        </div>
+      </div>
+
+      <div class="criteria-row">
+        <div class="criteria-info">
+          <div class="criteria-name">Clarity &amp; Language</div>
+          <div class="criteria-desc">Communication clarity, language use, and articulation</div>
+          <span class="criteria-weight">10%</span>
+        </div>
+        <div class="criteria-input-wrap">
+          <input type="number" id="c_clarity" min="0" max="10" step="0.5" placeholder="0.0" oninput="calcTotal()">
+          <span class="input-max">/ 10.0</span>
+        </div>
+        <div class="criteria-score" id="s_clarity">
+          <div class="score-val">—</div>
+          <div class="score-label">pts</div>
+        </div>
+      </div>
+
+      <div class="criteria-row">
+        <div class="criteria-info">
+          <div class="criteria-name">Lifelong Learning</div>
+          <div class="criteria-desc">Self-improvement initiative and continuous learning attitude</div>
+          <span class="criteria-weight">15%</span>
+        </div>
+        <div class="criteria-input-wrap">
+          <input type="number" id="c_lifelong" min="0" max="15" step="0.5" placeholder="0.0" oninput="calcTotal()">
+          <span class="input-max">/ 15.0</span>
+        </div>
+        <div class="criteria-score" id="s_lifelong">
+          <div class="score-val">—</div>
+          <div class="score-label">pts</div>
+        </div>
+      </div>
+
+      <div class="criteria-row">
+        <div class="criteria-info">
+          <div class="criteria-name">Project Management</div>
+          <div class="criteria-desc">Planning, organising, and delivering work on schedule</div>
+          <span class="criteria-weight">15%</span>
+        </div>
+        <div class="criteria-input-wrap">
+          <input type="number" id="c_project" min="0" max="15" step="0.5" placeholder="0.0" oninput="calcTotal()">
+          <span class="input-max">/ 15.0</span>
+        </div>
+        <div class="criteria-score" id="s_project">
+          <div class="score-val">—</div>
+          <div class="score-label">pts</div>
+        </div>
+      </div>
+
+      <div class="criteria-row">
+        <div class="criteria-info">
+          <div class="criteria-name">Time Management</div>
+          <div class="criteria-desc">Punctuality, meeting deadlines, and efficient use of time</div>
+          <span class="criteria-weight">15%</span>
+        </div>
+        <div class="criteria-input-wrap">
+          <input type="number" id="c_time" min="0" max="15" step="0.5" placeholder="0.0" oninput="calcTotal()">
+          <span class="input-max">/ 15.0</span>
+        </div>
+        <div class="criteria-score" id="s_time">
+          <div class="score-val">—</div>
+          <div class="score-label">pts</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="total-section">
+      <div>
+        <div class="total-label">Total Score</div>
+        <div style="font-size:11px; color:var(--muted); margin-top:2px;">Auto-calculated from all criteria</div>
+      </div>
+      <div class="total-bar-wrap">
+        <div class="total-bar" id="totalBar" style="width:0%"></div>
+      </div>
+      <div class="total-value" id="totalDisplay">— / 100.0</div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-label">Assessor Comments</div>
+      <textarea id="comments" placeholder="Add your overall remarks, strengths observed, areas for improvement, and any additional notes about the student's internship performance…"></textarea>
+    </div>
+
+    <div class="form-footer">
+      <a href="assessor_dashboard.php" class="btn btn-ghost">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Cancel
+      </a>
+      <button class="btn btn-primary" id="submitBtn" onclick="submitResult()">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        Submit Result
+      </button>
+    </div>
+  </div>
+
+  <div class="form-card" id="emptyState">
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <div class="empty-text">Select a student above to begin entering their assessment result.</div>
+    </div>
+  </div>
+
+  <div class="form-card success-overlay" id="successOverlay">
+    <div class="success-icon">
+      <svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="#34c97b" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="success-title">Result Submitted Successfully</div>
+    <div class="success-sub" id="successMsg">The assessment has been recorded.</div>
+    <div class="success-actions">
+      <a href="result_entry.php" class="btn btn-ghost">Enter Another</a>
+      <a href="assessor_view_results.php" class="btn btn-primary">View Results</a>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  // Add a timestamp to permanently defeat caching
+  const FETCH_URL = 'get_my_students.php?t=' + new Date().getTime();
+
+  const CRITERIA = [
+    { id: 'undertaking', max: 10 },
+    { id: 'health',      max: 10 },
+    { id: 'theoretical', max: 10 },
+    { id: 'report',      max: 15 },
+    { id: 'clarity',     max: 10 },
+    { id: 'lifelong',    max: 15 },
+    { id: 'project',     max: 15 },
+    { id: 'time',        max: 15 },
+  ];
+
+  let students = {};
+  let selectedInternshipId = null;
+
+  // Extremely safe number checker
+  function safeNum(val) {
+    if (val === null || val === undefined || val === '') return null;
+    const num = parseFloat(val);
+    if (isNaN(num)) return null;
+    return num;
+  }
+
+  function loadStudents() {
+    fetch(FETCH_URL)
+      .then(r => r.json())
+      .then(rows => {
+        const sel = document.getElementById('studentSelect');
+        sel.innerHTML = '<option value="">— Select an assigned student —</option>';
+        students = {};
+
+        rows.forEach(s => {
+          sel.innerHTML += `<option value="${s.internship_id}">${s.student_id} — ${s.full_name} (${s.company_name || 'No company'})</option>`;
+          students[s.internship_id] = s;
+        });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const editId = urlParams.get('edit');
+
+        if (editId && students[editId]) {
+            sel.value = editId;
+            onStudentChange();
+        }
+      })
+      .catch(err => console.error('Failed to load students:', err));
+  }
+
+  function getInitials(name) {
+    return name.split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase();
+  }
+
+  function onStudentChange() {
+    const iid = document.getElementById('studentSelect').value;
+    const formCard  = document.getElementById('formCard');
+    const emptyState = document.getElementById('emptyState');
+    const infoCard  = document.getElementById('studentInfoCard');
+    const warning   = document.getElementById('assessedWarning');
+
+    if (!iid) {
+      formCard.style.display = 'none';
+      emptyState.style.display = 'block';
+      infoCard.classList.remove('visible');
+      warning.classList.remove('visible');
+      return;
+    }
+
+    const s = students[iid];
+    selectedInternshipId = iid;
+
+    document.getElementById('infoAvatar').textContent = getInitials(s.full_name);
+    document.getElementById('infoName').textContent = s.full_name;
+    document.getElementById('infoMeta').textContent = `${s.student_id} · ${s.programme}`;
+    document.getElementById('infoCompany').textContent = s.company_name || '—';
+    document.getElementById('infoProgramme').textContent = s.programme;
+    infoCard.classList.add('visible');
+
+    const totalCheck = safeNum(s.total_score);
+
+    if (totalCheck !== null) {
+      warning.classList.add('visible');
+      prefillScores(s);
+    } else {
+      warning.classList.remove('visible');
+      resetForm();
+    }
+
+    emptyState.style.display = 'none';
+    formCard.style.display = 'block';
+    calcTotal();
+  }
+
+  function prefillScores(s) {
+    if (!s.assessment) return;
+    const a = s.assessment;
+    const map = {
+      undertaking: a.undertaking_tasks,
+      health:      a.health_safety,
+      theoretical: a.theoretical_knowledge,
+      report:      a.report_presentation,
+      clarity:     a.clarity_language,
+      lifelong:    a.lifelong_learning,
+      project:     a.project_management,
+      time:        a.time_management,
+    };
+    Object.entries(map).forEach(([key, val]) => {
+      const el = document.getElementById('c_' + key);
+      const num = safeNum(val);
+      if (el) el.value = num !== null ? num.toFixed(1) : '';
+    });
+    document.getElementById('comments').value = a.comments || '';
+  }
+
+  function resetForm() {
+    CRITERIA.forEach(c => {
+      const el = document.getElementById('c_' + c.id);
+      if (el) el.value = '';
+    });
+    document.getElementById('comments').value = '';
+    calcTotal();
+  }
+
+  function calcTotal() {
+    let total = 0;
+    let anyFilled = false;
+
+    CRITERIA.forEach(c => {
+      const el = document.getElementById('c_' + c.id);
+      const scoreEl = document.getElementById('s_' + c.id);
+      const val = parseFloat(el.value);
+
+      if (!isNaN(val) && val >= 0 && val <= c.max) {
+        total += val;
+        anyFilled = true;
+        el.classList.remove('error');
+        scoreEl.querySelector('.score-val').textContent = val.toFixed(1);
+      } else if (el.value === '') {
+        scoreEl.querySelector('.score-val').textContent = '—';
+      } else {
+        el.classList.add('error');
+        scoreEl.querySelector('.score-val').textContent = '!';
+      }
+    });
+
+    const display = document.getElementById('totalDisplay');
+    const bar     = document.getElementById('totalBar');
+    const pct     = (total / 100) * 100;
+
+    display.className = 'total-value';
+    
+    // Shows a perfect clean DASH if the form is empty, avoiding 0.0 or NaN
+    if (!anyFilled) {
+        display.textContent = '— / 100.0';
+        bar.style.width = '0%';
+        bar.style.background = 'var(--border)';
+    } else {
+        display.textContent = total.toFixed(1) + ' / 100.0';
+        bar.style.width = pct + '%';
+        bar.style.background = 'var(--accent)';
+
+        if (total >= 70) {
+          display.classList.add('good');
+          bar.style.background = 'var(--success)';
+        } else if (total >= 50) {
+          display.classList.add('mid');
+          bar.style.background = 'var(--warning)';
+        } else {
+          display.classList.add('poor');
+          bar.style.background = 'var(--danger)';
+        }
+    }
+  }
+
+  function validateForm() {
+    let valid = true;
+    CRITERIA.forEach(c => {
+      const el = document.getElementById('c_' + c.id);
+      const val = parseFloat(el.value);
+      if (isNaN(val) || val < 0 || val > c.max) {
+        el.classList.add('error');
+        valid = false;
+      } else {
+        el.classList.remove('error');
+      }
+    });
+    return valid;
+  }
+
+  async function submitResult() {
+    if (!selectedInternshipId) {
+      alert('Please select a student first.');
+      return;
+    }
+
+    if (!validateForm()) {
+      alert('Please enter valid scores for all criteria before submitting.');
+      return;
+    }
+
+    const payload = {
+      internship_id:         selectedInternshipId,
+      undertaking_tasks:     parseFloat(document.getElementById('c_undertaking').value),
+      health_safety:         parseFloat(document.getElementById('c_health').value),
+      theoretical_knowledge: parseFloat(document.getElementById('c_theoretical').value),
+      report_presentation:   parseFloat(document.getElementById('c_report').value),
+      clarity_language:      parseFloat(document.getElementById('c_clarity').value),
+      lifelong_learning:     parseFloat(document.getElementById('c_lifelong').value),
+      project_management:    parseFloat(document.getElementById('c_project').value),
+      time_management:       parseFloat(document.getElementById('c_time').value),
+      comments:              document.getElementById('comments').value.trim()
+    };
+
+    try {
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Submitting…';
+
+      const resp = await fetch('result_entry_handler.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await resp.json();
+
+      if (!result.success) {
+        alert((result.errors || ['Submission failed.']).join('\n'));
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Submit Result`;
+        return;
+      }
+
+      const s = students[selectedInternshipId];
+      document.getElementById('successMsg').textContent =
+        `Assessment for ${s.full_name} has been recorded with a total score of ${result.total_score}.`;
+
+      document.getElementById('formCard').style.display = 'none';
+      document.getElementById('studentInfoCard').classList.remove('visible');
+      document.getElementById('successOverlay').classList.add('visible');
+
+    } catch (err) {
+      console.error(err);
+      alert('Network request failed. Ensure the database structure is correct.');
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('submitBtn').innerHTML =
+        `<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Submit Result`;
+    }
+  }
+
+  loadStudents();
+</script>
+</body>
+</html>
