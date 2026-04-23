@@ -1,9 +1,35 @@
 <?php
+session_start();
 require_once 'auth.php';
 requireRole('admin');
 require_once 'config.php';
 
 $conn = getConnection();
+$user_id   = (int)($_SESSION['user_id'] ?? 0);
+$userName  = $_SESSION['full_name'] ?? 'Admin User';
+
+if ($user_id > 0) {
+    $stmt = $conn->prepare("SELECT full_name FROM users WHERE user_id = ? LIMIT 1");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($row && !empty($row['full_name'])) {
+        $userName = $row['full_name'];
+        $_SESSION['full_name'] = $row['full_name']; // 顺便把 session 也更新
+    }
+}
+
+$parts = explode(' ', trim($userName));
+$initials = '';
+
+foreach ($parts as $part) {
+    if ($part !== '') {
+        $initials .= strtoupper($part[0]);
+    }
+    if (strlen($initials) >= 2) break; 
+}
 
 $pageSuccess = '';
 $pageError = '';
@@ -527,7 +553,7 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
       flex-shrink: 0;
     }
 
-    .sidebar-user-name {
+    .user-name {
       font-size: 12px;
       font-weight: 500;
       color: rgba(232, 234, 240, 0.55);
@@ -1037,9 +1063,10 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
 
   <div class="sidebar-footer">
     <div class="sidebar-user">
-      <div class="avatar">AD</div>
-      <div class="sidebar-user-name"><?= htmlspecialchars($_SESSION['full_name'] ?? 'Admin User') ?></div>
+      <div class="avatar"><?php echo htmlspecialchars($initials); ?></div>
+      <div class="user-name"><?php echo htmlspecialchars($userName); ?></div>
     </div>
+
     <a href="logout.php" class="logout-btn">Logout</a>
   </div>
 </nav>

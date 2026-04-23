@@ -10,8 +10,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 // 1. Read form data
 $student_id      = isset($_POST['student_id']) ? trim($_POST['student_id']) : '';
-$assessor_id     = isset($_POST['assessor']) ? (int)$_POST['assessor'] : 0;
+$lecturer_id     = isset($_POST['lecturer']) ? (int)$_POST['lecturer'] : 0;
 $company_name    = isset($_POST['company']) ? trim($_POST['company']) : '';
+$supervisor_id   = isset($_POST['supervisor']) ? (int)$_POST['supervisor'] : 0;
 $industry        = isset($_POST['industry']) ? trim($_POST['industry']) : '';
 $industry_other  = isset($_POST['industry_other']) ? trim($_POST['industry_other']) : '';
 $start_date      = isset($_POST['start_date']) ? trim($_POST['start_date']) : '';
@@ -27,10 +28,10 @@ if ($industry === 'Other' && $industry_other !== '') {
 $errors = [];
 
 if ($student_id === '') $errors[] = 'Student ID is required.';
-if ($assessor_id <= 0) $errors[] = 'Please select an assessor.';
+if ($lecturer_id <= 0) $errors[] = 'Please select a lecturer.';
 if ($company_name === '') $errors[] = 'Company name is required.';
+if ($supervisor_id <= 0) $errors[] = 'Supervisor is required.';
 
-// date input type="date" sends YYYY-MM-DD
 function isValidMysqlDate($date) {
     if (!$date) return false;
     $d = DateTime::createFromFormat('Y-m-d', $date);
@@ -56,6 +57,7 @@ if (!$conn) {
 // 5. Check student exists
 $check = $conn->prepare("SELECT student_id FROM students WHERE student_id = ?");
 if (!$check) {
+    $conn->close();
     exit("Check prepare failed: " . $conn->error);
 }
 $check->bind_param('s', $student_id);
@@ -69,7 +71,71 @@ if ($check->num_rows === 0) {
 }
 $check->close();
 
-// 6. Check if student already has active internship
+// 6. Check lecturer is valid lecturer
+$lecturerCheck = $conn->prepare("
+    SELECT user_id
+    FROM users
+    WHERE user_id = ?
+      AND role = 'lecturer'
+      AND status = 'active'
+");
+if (!$lecturerCheck) {
+    $conn->close();
+    exit("Lecturer check failed: " . $conn->error);
+}
+$lecturerCheck->bind_param('i', $lecturer_id);
+$lecturerCheck->execute();
+$lecturerCheck->store_result();
+
+if ($lecturerCheck->num_rows === 0) {
+    $lecturerCheck->close();
+    $conn->close();
+    exit('Invalid lecturer selected.');
+}
+$lecturerCheck->close();
+
+// 7. Lock supervisor to only the two fixed supervisors
+// John Tan = 9, Sarah Lim = 10
+$allowed_supervisors = [9, 10];
+
+if (!in_array($supervisor_id, $allowed_supervisors, true)) {
+    $conn->close();
+    exit('Invalid supervisor selected. Only fixed supervisors are allowed.');
+}
+
+// 8. Optional extra safety: make company and supervisor match
+$company_lower = strtolower(trim($company_name));
+
+if ($company_lower === 'intel penang') {
+    $supervisor_id = 9;
+} elseif ($company_lower === 'maybank') {
+    $supervisor_id = 10;
+}
+
+// 9. Double-check supervisor really exists and is active supervisor
+$supervisorCheck = $conn->prepare("
+    SELECT user_id
+    FROM users
+    WHERE user_id = ?
+      AND role = 'supervisor'
+      AND status = 'active'
+");
+if (!$supervisorCheck) {
+    $conn->close();
+    exit("Supervisor check failed: " . $conn->error);
+}
+$supervisorCheck->bind_param('i', $supervisor_id);
+$supervisorCheck->execute();
+$supervisorCheck->store_result();
+
+if ($supervisorCheck->num_rows === 0) {
+    $supervisorCheck->close();
+    $conn->close();
+    exit('Selected supervisor is not valid.');
+}
+$supervisorCheck->close();
+
+// 10. Check if student already has active internship
 $active = $conn->prepare("
     SELECT internship_id
     FROM internships
@@ -90,10 +156,11 @@ if ($active->num_rows > 0) {
 }
 $active->close();
 
-// 7. Update the existing unassigned record
+// 11. Update the existing unassigned record
 $stmt = $conn->prepare("
     UPDATE internships
-    SET assessor_id = ?,
+    SET lecturer_id = ?,
+        supervisor_id = ?,
         company_name = ?,
         industry = ?,
         start_date = ?,
@@ -109,8 +176,9 @@ if (!$stmt) {
 }
 
 $stmt->bind_param(
-    'issssss',
-    $assessor_id,
+    'iissssss',
+    $lecturer_id,
+    $supervisor_id,
     $company_name,
     $industry,
     $start_date,
@@ -123,7 +191,7 @@ if ($stmt->execute()) {
     if ($stmt->affected_rows > 0) {
         $stmt->close();
         $conn->close();
-        header("Location: internship_list.html");
+        header("Location: internship_list.php");
         exit;
     } else {
         $stmt->close();

@@ -3,6 +3,7 @@ session_start();
 require_once 'auth.php';
 requireRole('admin');
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -91,7 +92,7 @@ requireRole('admin');
 
   .nav-item svg { flex-shrink: 0; }
 
-  .sidebar-footer {
+.sidebar-footer {
     margin-top: auto;
     padding: 16px 20px;
     border-top: 1px solid var(--border);
@@ -110,15 +111,20 @@ requireRole('admin');
   }
 
   .avatar {
-    width: 32px; height: 32px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--accent), var(--accent2));
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 700; color: #fff;
-    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
   }
 
-    .user-name {
+  .user-name {
     font-size: 12px;
     font-weight: 500;
     color: rgba(232, 234, 240, 0.55);
@@ -126,7 +132,7 @@ requireRole('admin');
     white-space: nowrap;
   }
 
-    .logout-btn {
+  .logout-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -147,6 +153,7 @@ requireRole('admin');
     border-color: #e05555;
     color: #ff7b7b;
   }
+
 
   /* ── Main ── */
   .main {
@@ -296,33 +303,39 @@ requireRole('admin');
   .student-cell { display: flex; flex-direction: column; gap: 2px; }
   .student-id { font-family: var(--mono); font-size: 11px; color: var(--muted); }
 
-  .assessor-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    border-radius: 99px;
-    font-size: 12px;
-    background: rgba(79,142,247,0.12);
-    color: var(--accent);
-    font-weight: 500;
-  }
-
   .company-name { font-weight: 500; }
   .company-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-  .status-badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 99px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
+  .status-badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:88px;
+    padding:6px 12px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:.2px;
+    border:1px solid transparent;
   }
 
-  .status-completed { background: rgba(52,201,123,0.12); color: var(--success); }
-  .status-pending  { background: rgba(240,160,48,0.12);  color: var(--warning); }
-  .status-unassigned { background: rgba(107,112,128,0.12); color: var(--muted); }
+  .badge-completed{
+    background: rgba(52, 201, 123, 0.10);
+    color: #34c97b;
+    border-color: rgba(52, 201, 123, 0.16);
+  }
+
+  .badge-pending{
+    background: rgba(240, 160, 48, 0.10);
+    color: #e6a23c;
+    border-color: rgba(240, 160, 48, 0.14);
+  }
+
+  .badge-unassigned{
+    background: rgba(124, 106, 247, 0.10);
+    color: #7c6af7;
+    border-color: rgba(124, 106, 247, 0.14);
+  }
 
   .actions { display: flex; gap: 6px; }
 
@@ -425,8 +438,23 @@ requireRole('admin');
 
   <div class="sidebar-footer">
     <div class="sidebar-user">
-      <div class="avatar">AD</div>
-      <div class="user-name">Admin User</div>
+      <div class="avatar">
+        <?php
+          $displayName = $_SESSION['full_name'] ?? 'Admin User';
+          $parts = preg_split('/\s+/', trim($displayName));
+          $initials = '';
+          foreach ($parts as $part) {
+            if ($part !== '') {
+              $initials .= strtoupper($part[0]);
+            }
+            if (strlen($initials) >= 2) break;
+          }
+          echo htmlspecialchars($initials ?: 'AD');
+        ?>
+      </div>
+      <div class="user-name">
+        <?php echo htmlspecialchars($_SESSION['full_name'] ?? 'Admin User'); ?>
+      </div>
     </div>
 
     <a href="logout.php" class="logout-btn">Logout</a>
@@ -441,7 +469,7 @@ requireRole('admin');
       <div class="page-title">Internship Management</div>
       <div class="page-sub">Manage student internship assignments and records</div>
     </div>
-    <a href="assign_student.html" class="btn btn-primary">
+    <a href="assign_student.php" class="btn btn-primary">
       <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Assign Student
     </a>
@@ -479,8 +507,12 @@ requireRole('admin');
       <option value="pending">Pending</option>
       <option value="unassigned">Unassigned</option>
     </select>
-    <select class="filter-select" id="assessorFilter">
-      <option value="all">All Assessors</option>
+    <select class="filter-select" id="lecturerFilter">
+      <option value="all">All Lecturers</option>
+    </select>
+
+    <select class="filter-select" id="supervisorFilter">
+      <option value="all">All Supervisors</option>
     </select>
     <select class="filter-select" id="programmeFilter">
       <option value="all">All Programmes</option>
@@ -499,15 +531,16 @@ requireRole('admin');
   <div class="table-wrap">
     <table>
       <thead>
-        <tr>
-          <th>Student</th>
-          <th>Programme</th>
-          <th>Assessor</th>
-          <th>Company</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
+          <tr>
+            <th>Student</th>
+            <th>Programme</th>
+            <th>Company</th>
+            <th>Lecturer Status</th>
+            <th>Supervisor Status</th>
+            <th>Overall Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
       <tbody id="tableBody"></tbody>
     </table>
     <div class="no-results" id="noResults">No records match your search.</div>
@@ -537,7 +570,7 @@ requireRole('admin');
         document.getElementById("stat-pending").textContent = result.counts?.pending ?? data.filter(r => r.status === "pending").length;
         document.getElementById("stat-unassigned").textContent = result.counts?.unassigned ?? data.filter(r => r.status === "unassigned").length;
 
-        populateAssessorFilter(data);
+        populateEvaluatorFilters(data);
         render();
       })
       .catch(error => {
@@ -545,39 +578,91 @@ requireRole('admin');
       });
   }
 
-  function populateAssessorFilter(records) {
-    const assessorFilter = document.getElementById("assessorFilter");
+  function populateEvaluatorFilters(records) {
+    const lecturerFilter = document.getElementById("lecturerFilter");
+    const supervisorFilter = document.getElementById("supervisorFilter");
 
-    const names = [...new Set(
+    const lecturers = [...new Set(
       records
-        .map(r => r.assessor_name)
+        .map(r => r.lecturer_name)
         .filter(name => name && name.trim() !== "")
     )].sort();
 
-    assessorFilter.innerHTML =
-      '<option value="all">All Assessors</option>' +
-      names.map(name => `<option value="${name}">${name}</option>`).join("");
+    const supervisors = [...new Set(
+      records
+        .map(r => r.supervisor_name)
+        .filter(name => name && name.trim() !== "")
+    )].sort();
+
+    lecturerFilter.innerHTML =
+      '<option value="all">All Lecturers</option>' +
+      lecturers.map(name => `<option value="${name}">${name}</option>`).join("");
+
+    supervisorFilter.innerHTML =
+      '<option value="all">All Supervisors</option>' +
+      supervisors.map(name => `<option value="${name}">${name}</option>`).join("");
   }
 
-  function statusBadge(s) {
+  function statusBadge(status) {
     const map = {
-      completed: "status-completed",
-      pending: "status-pending",
-      unassigned: "status-unassigned"
+      completed: "badge-completed",
+      pending: "badge-pending",
+      unassigned: "badge-unassigned"
     };
-    return `<span class="status-badge ${map[s] || ""}">${s.charAt(0).toUpperCase() + s.slice(1)}</span>`;
+    return `<span class="status-badge ${map[status] || ""}">${
+      status ? status.charAt(0).toUpperCase() + status.slice(1) : "—"
+    }</span>`;  
+  }
+
+  function submissionDot(submitted, label) {
+    const dotColor = submitted ? 'var(--success)' : '#e4a63a';
+    const text = submitted ? 'Completed' : 'Pending';
+    const textColor = submitted ? 'var(--success)' : '#f3f4f6';
+
+    return `
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="
+          width:8px;
+          height:8px;
+          border-radius:50%;
+          background:${dotColor};
+          display:inline-block;
+          flex-shrink:0;
+        "></span>
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span style="
+            font-size:12px;
+            font-weight:500;
+            color:${textColor};
+          ">${text}</span>
+          <span style="
+            font-size:12px;
+            color:var(--muted);
+          ">${label || '—'}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function hasSubmission(v) {
+    return v !== null && v !== undefined && v !== "";
   }
 
   function filteredData() {
-    const q = document.getElementById("searchInput").value.toLowerCase().trim();
+    const q  = document.getElementById("searchInput").value.toLowerCase().trim();
     const sf = document.getElementById("statusFilter").value;
-    const af = document.getElementById("assessorFilter").value;
+    const lf = document.getElementById("lecturerFilter").value;
+    const vf = document.getElementById("supervisorFilter").value;
     const pf = document.getElementById("programmeFilter").value;
 
     return data.filter(r =>
-      ((r.student_id || "").toLowerCase().includes(q) || (r.full_name || "").toLowerCase().includes(q)) &&
+      (
+        (r.student_id || "").toLowerCase().includes(q) ||
+        (r.full_name || "").toLowerCase().includes(q)
+      ) &&
       (sf === "all" || r.status === sf) &&
-      (af === "all" || r.assessor_name === af) &&
+      (lf === "all" || r.lecturer_name === lf) &&
+      (vf === "all" || r.supervisor_name === vf) &&
       (pf === "all" || r.programme === pf)
     );
   }
@@ -617,18 +702,23 @@ requireRole('admin');
           </td>
           <td>${r.programme}</td>
           <td>
-            ${r.assessor_name
-              ? `<span class="assessor-pill">
-                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                     <circle cx="12" cy="8" r="4"/>
-                     <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                   </svg>
-                   ${r.assessor_name}
-                 </span>`
-              : '<span style="color:var(--muted);font-size:12px">—</span>'}
+            <div class="company-name">
+              ${r.company_name || '<span style="color:var(--muted);font-size:12px">Not assigned</span>'}
+            </div>
           </td>
           <td>
-            <div class="company-name">${r.company_name || '<span style="color:var(--muted);font-size:12px">Not assigned</span>'}</div>
+            ${
+              r.status === "unassigned"
+                ? '<span style="color:var(--muted);font-size:12px">—</span>'
+                : submissionDot(hasSubmission(r.lecturer_score), r.lecturer_name)
+            }
+          </td>
+          <td>
+            ${
+              r.status === "unassigned"
+                ? '<span style="color:var(--muted);font-size:12px">—</span>'
+                : submissionDot(hasSubmission(r.supervisor_score), r.supervisor_name)
+            }
           </td>
           <td>${statusBadge(r.status)}</td>
           <td>
@@ -682,11 +772,11 @@ requireRole('admin');
   }
 
   function assignRecord(studentId) {
-    window.location.href = `assign_student.html?student_id=${studentId}`;
+    window.location.href = `assign_student.php?student_id=${studentId}`;
   }
 
   function editRecord(id) {
-    window.location.href = `edit_internship.html?id=${id}`;
+    window.location.href = `edit_internship.php?id=${id}`;
   }
 
   function deleteRecord(id) {
@@ -726,11 +816,30 @@ requireRole('admin');
     setTimeout(() => t.classList.remove("show"), 2800);
   }
 
+  function csvSafe(v) {
+  return `"${String(v ?? '').replace(/"/g, '""')}"`;
+}
+
   function exportCSV() {
     const rows = filteredData();
     const csv = [
-      "Student ID,Name,Programme,Assessor,Company,Status",
-      ...rows.map(r => `${r.student_id},${r.full_name},${r.programme},${r.assessor_name || ''},${r.company_name || ''},${r.status}`)
+      [
+        "Student ID","Name","Programme","Company",
+        "Lecturer","Lecturer Status",
+        "Supervisor","Supervisor Status",
+        "Overall Status"
+      ].map(csvSafe).join(","),
+      ...rows.map(r => [
+        csvSafe(r.student_id),
+        csvSafe(r.full_name),
+        csvSafe(r.programme),
+        csvSafe(r.company_name || ''),
+        csvSafe(r.lecturer_name || ''),
+        csvSafe(hasSubmission(r.lecturer_score) ? 'Completed' : 'Pending'),
+        csvSafe(r.supervisor_name || ''),
+        csvSafe(hasSubmission(r.supervisor_score) ? 'Completed' : 'Pending'),
+        csvSafe(r.status ? r.status.charAt(0).toUpperCase() + r.status.slice(1) : '')
+      ].join(","))
     ].join("\n");
 
     const a = document.createElement("a");
@@ -750,7 +859,12 @@ requireRole('admin');
     render();
   });
 
-  document.getElementById("assessorFilter").addEventListener("change", () => {
+  document.getElementById("lecturerFilter").addEventListener("change", () => {
+    currentPage = 1;
+    render();
+  });
+    
+  document.getElementById("supervisorFilter").addEventListener("change", () => {
     currentPage = 1;
     render();
   });

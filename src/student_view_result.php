@@ -141,7 +141,7 @@ $stmt->close();
   .user-name { font-size: 12px; font-weight: 500; color: rgba(232, 234, 240, 0.55); line-height: 1.3; white-space: nowrap; }
   .logout-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 14px; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: #ff6b6b; font-size: 13px; font-weight: 600; text-decoration: none; transition: all 0.15s ease; flex-shrink: 0; }
   .logout-btn:hover { background: rgba(224, 85, 85, 0.08); border-color: #e05555; color: #ff7b7b; }
-  .main { margin-left: 220px; flex: 1; padding: 40px 48px; max-width: 900px; }
+  .main { margin-left: 220px; flex: 1; padding: 40px 48px; max-width: 1220px; }
   .page-header { margin-bottom: 32px; }
   .page-title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; }
   .page-sub { font-size: 14px; color: var(--muted); }

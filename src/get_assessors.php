@@ -9,7 +9,7 @@ require_once 'config.php';
 $conn = getConnection();
 
 $programme = isset($_GET['programme']) && $_GET['programme'] !== ''
-    ? $conn->real_escape_string($_GET['programme'])
+    ? trim($_GET['programme'])
     : null;
 
 $sql = "
@@ -19,8 +19,8 @@ $sql = "
         u.programme,
         COUNT(i.internship_id) AS student_count
     FROM users u
-    LEFT JOIN internships i ON u.user_id = i.assessor_id
-    WHERE u.role = 'assessor'
+    LEFT JOIN internships i ON u.user_id = i.lecturer_id
+    WHERE u.role = 'lecturer'
 ";
 
 $params = [];

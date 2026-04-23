@@ -202,6 +202,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $newUserId = (int)$conn->insert_id;
             $stmt->close();
 
+            if ($role === 'student') {
+                $stmt = $conn->prepare('
+                    INSERT INTO internships (
+                        student_id,
+                        lecturer_id,
+                        supervisor_id,
+                        company_name,
+                        industry,
+                        start_date,
+                        end_date,
+                        status,
+                        notes
+                    ) VALUES (?, NULL, NULL, NULL, NULL, NULL, NULL, "unassigned", "")
+                ');
+
+                if (!$stmt) {
+                    throw new Exception('Internship prepare failed: ' . $conn->error);
+                }
+
+                $stmt->bind_param('s', $student_id);
+
+                if (!$stmt->execute()) {
+                    throw new Exception('Failed to create internship record: ' . $stmt->error);
+                }
+
+                $stmt->close();
+            }
+
             writeActivityLog(
                 $conn,
                 'add',
