@@ -833,24 +833,32 @@ function renderAttention(items) {
 function renderPendingEvaluations(items) {
   const tbody = document.getElementById('pending-evaluations-body');
   if (!tbody) return;
+
   if (!items || !items.length) {
     tbody.innerHTML = '<tr><td colspan="3" style="color: var(--muted);">No pending evaluation result records found.</td></tr>';
     return;
   }
 
   tbody.innerHTML = items.map(item => {
-    const badgeClass = item.status === 'unassigned' ? 'status-unassigned' : 'status-pending';
-    const statusText = item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1) : '';
+    let badgeClass = 'status-pending';
+
+    if (item.status === 'Awaiting both') {
+      badgeClass = 'status-unassigned';
+    } else if (item.status === 'Supervisor pending') {
+      badgeClass = 'status-info';
+    } else if (item.status === 'Completed') {
+      badgeClass = 'status-completed';
+    }
+
     return `
       <tr>
         <td>${escapeHtml(item.student_name)}</td>
         <td>${escapeHtml(item.assigned_staff_name)}</td>
-        <td><span class="status-badge ${badgeClass}">${escapeHtml(statusText)}</span></td>
+        <td><span class="status-badge ${badgeClass}">${escapeHtml(item.status || '')}</span></td>
       </tr>
     `;
   }).join('');
 }
-
 
 function renderRecentActivities(items) {
   const container = document.getElementById('recent-activities-list');
