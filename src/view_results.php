@@ -355,7 +355,7 @@ function render() {
       const hasL = safeNum(r.lecturer_score) !== null;
       const hasS = safeNum(r.supervisor_score) !== null;
       const hasFinal = safeNum(r.total_score) !== null;
-      const score = hasFinal ? parseFloat(r.total_score).toFixed(2) : null;
+      const score = hasFinal ? parseFloat(r.total_score).toFixed(1) : null;
       const grade = getGrade(r.total_score);
       const safeR = JSON.stringify(r).replace(/'/g, "\\'");
       return `
@@ -408,15 +408,15 @@ function buildAssessorPanel(r, scoreKey, criteriaKeys, commentKey, title, cls, a
     const valKey = criteriaKeys === 'l' ? c.lKey : c.sKey;
     const val = safeNum(r[valKey]) ?? 0;
     return `<div class="breakdown-row-sm">
-      <span>${c.label} <span style="color:var(--muted)">(${c.max})</span></span>
-      <span class="breakdown-score-sm">${val.toFixed(1)}</span>
+      <span>${c.label}</span>
+      <span class="breakdown-score-sm">${val.toFixed(1)} <span style="color:var(--muted);font-weight:400">/ ${c.max}</span></span>
     </div>`;
   }).join('');
 
   const comment = r[commentKey];
   return `<div class="assessor-panel">
     <div class="assessor-panel-title ${cls}">${title} — ${assessorName || '—'}</div>
-    <div class="assessor-total" style="color:var(--${cls==='lect'?'accent':'warning'})">${score.toFixed(2)} / 100</div>
+    <div class="assessor-total" style="color:var(--${cls==='lect'?'accent':'warning'})">${score.toFixed(1)} / 100</div>
     ${rows}
     ${comment ? `<div class="comment-box">"${comment}"</div>` : ''}
   </div>`;
@@ -432,7 +432,7 @@ function openModal(r) {
   const finalScore = safeNum(r.total_score);
 
   if (finalScore !== null) {
-    finalEl.textContent  = finalScore.toFixed(2);
+    finalEl.textContent  = finalScore.toFixed(1);
     finalEl.style.color  = 'var(--success)';
     finalLabel.textContent = `Final Score / 100 · Grade ${getGrade(r.total_score)}`;
   } else {
