@@ -49,7 +49,7 @@ $conn->close();
   .nav-item { display:flex; align-items:center; gap:10px; padding:10px 20px; font-size:13.5px; font-weight:500; color:var(--muted); border-left:3px solid transparent; transition:all .15s; text-decoration:none; }
   .nav-item:hover { color:var(--text); background:var(--surface2); }
   .nav-item.active { color:var(--accent); border-left-color:var(--accent); background:rgba(79,142,247,.07); }
-  .sidebar-footer { margin-top:auto; padding:16px 20px; border-top:1px solid var(--border); display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
+  .sidebar-footer { margin-top:auto; padding:17px 20px; border-top:1px solid var(--border); display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
   .sidebar-user { display:flex; flex-direction:column; align-items:flex-start; gap:8px; min-width:0; }
   .avatar { width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--accent2)); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#fff; flex-shrink:0; }
   .user-name { font-size:12px; font-weight:500; color:rgba(232,234,240,.55); white-space:nowrap; }

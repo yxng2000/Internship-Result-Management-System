@@ -1,9 +1,35 @@
 <?php
+session_start();
 require_once 'auth.php';
 requireRole('admin');
 require_once 'config.php';
 
 $conn = getConnection();
+$user_id   = (int)($_SESSION['user_id'] ?? 0);
+$userName  = $_SESSION['full_name'] ?? 'Admin User';
+
+if ($user_id > 0) {
+    $stmt = $conn->prepare("SELECT full_name FROM users WHERE user_id = ? LIMIT 1");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($row && !empty($row['full_name'])) {
+        $userName = $row['full_name'];
+        $_SESSION['full_name'] = $row['full_name']; // 顺便把 session 也更新
+    }
+}
+
+$parts = explode(' ', trim($userName));
+$initials = '';
+
+foreach ($parts as $part) {
+    if ($part !== '') {
+        $initials .= strtoupper($part[0]);
+    }
+    if (strlen($initials) >= 2) break; 
+}
 
 $pageSuccess = '';
 $pageError = '';
@@ -13,7 +39,7 @@ $editModalPostedData = [];
 $editModalOriginalData = [];
 
 $initialRoleFilter = strtolower(trim($_GET['role'] ?? 'all'));
-$allowedRoles = ['all', 'student', 'assessor', 'admin'];
+$allowedRoles = ['all', 'student', 'lecturer', 'supervisor', 'admin'];
 if (!in_array($initialRoleFilter, $allowedRoles, true)) {
     $initialRoleFilter = 'all';
 }
@@ -43,6 +69,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_user'])) {
 
         if (!$targetUser) {
             $pageError = 'User not found.';
+        } elseif (in_array($targetUser['role'], ['admin', 'supervisor'], true)) {
+            $pageError = ucfirst($targetUser['role']) . ' account cannot be deleted.';
         } else {
             $conn->begin_transaction();
 
@@ -105,7 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_user'])) {
         'password' => $password,
         'confirm_password' => $confirm_password,
         'programme_student' => trim($_POST['programme_student'] ?? ''),
-        'programme_assessor' => trim($_POST['programme_assessor'] ?? '')
+        'programme_lecturer' => trim($_POST['programme_lecturer'] ?? ''),
+        'company_supervisor' => trim($_POST['company_supervisor'] ?? '')
     ];
 
     if ($user_id <= 0 || $full_name === '' || $email === '' || $status === '') {
@@ -113,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_user'])) {
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $editModalError = 'Please enter a valid email address.';
     } else {
-        $stmt = $conn->prepare("SELECT user_id, role, username, student_id, password, full_name, email, status, programme FROM users WHERE user_id = ? LIMIT 1");
+        $stmt = $conn->prepare("SELECT user_id, role, username, student_id, password, full_name, email, status, programme, company_name FROM users WHERE user_id = ? LIMIT 1");
         $stmt->bind_param("i", $user_id);
         $stmt->execute();
         $targetUser = $stmt->get_result()->fetch_assoc();
@@ -130,22 +159,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_user'])) {
                 'status' => $targetUser['status'],
                 'programme' => $targetUser['programme'] ?? '',
                 'username' => $targetUser['username'] ?? '',
-                'student_id' => $targetUser['student_id'] ?? ''
+                'student_id' => $targetUser['student_id'] ?? '',
+                'company_name' => $targetUser['company_name'] ?? ''
             ];
 
             $role = $targetUser['role'];
             $programme = null;
+            $company_name = null;
 
             if ($role === 'student') {
                 $programme = trim($_POST['programme_student'] ?? '');
                 if ($programme === '') {
                     $editModalError = 'Please select a programme for the student.';
                 }
-            } elseif ($role === 'assessor') {
-                $programme = trim($_POST['programme_assessor'] ?? '');
+            } elseif ($role === 'lecturer') {
+                $programme = trim($_POST['programme_lecturer'] ?? '');
                 if ($programme === '') {
-                    $editModalError = 'Please select a programme for the assessor.';
+                    $editModalError = 'Please select a programme for the lecturer.';
                 }
+            } elseif ($role === 'supervisor') {
+                $company_name = $targetUser['company_name'] ?? '';
             }
 
             if ($editModalError === '' && $password !== '') {
@@ -196,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_user'])) {
                         $stmt->execute();
                         $stmt->close();
 
-                    } elseif ($role === 'assessor') {
+                    } elseif ($role === 'lecturer') {
                         if ($password !== '') {
                             $hashedPassword = md5($password);
                             $stmt = $conn->prepare("
@@ -212,6 +245,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_user'])) {
                                 WHERE user_id = ?
                             ");
                             $stmt->bind_param("ssssi", $full_name, $email, $status, $programme, $user_id);
+                        }
+                        $stmt->execute();
+                        $stmt->close();
+
+                    } elseif ($role === 'supervisor') {
+                        if ($password !== '') {
+                            $hashedPassword = md5($password);
+                            $stmt = $conn->prepare("
+                                UPDATE users
+                                SET full_name = ?, email = ?, status = ?, company_name = ?, password = ?
+                                WHERE user_id = ?
+                            ");
+                            $stmt->bind_param("sssssi", $full_name, $email, $status, $company_name, $hashedPassword, $user_id);
+                        } else {
+                            $stmt = $conn->prepare("
+                                UPDATE users
+                                SET full_name = ?, email = ?, status = ?, company_name = ?
+                                WHERE user_id = ?
+                            ");
+                            $stmt->bind_param("ssssi", $full_name, $email, $status, $company_name, $user_id);
                         }
                         $stmt->execute();
                         $stmt->close();
@@ -281,6 +334,7 @@ $sql = "
         full_name,
         role,
         programme,
+        company_name,
         email,
         student_id,
         status,
@@ -289,9 +343,10 @@ $sql = "
     ORDER BY
         CASE role
             WHEN 'admin' THEN 1
-            WHEN 'assessor' THEN 2
-            WHEN 'student' THEN 3
-            ELSE 4
+            WHEN 'supervisor' THEN 2
+            WHEN 'lecturer' THEN 3
+            WHEN 'student' THEN 4
+            ELSE 5
         END,
         full_name ASC
 ";
@@ -307,7 +362,8 @@ if ($result) {
 $counts = [
     'total' => 0,
     'student' => 0,
-    'assessor' => 0,
+    'lecturer' => 0,
+    'supervisor' => 0,
     'admin' => 0,
 ];
 
@@ -338,10 +394,17 @@ function getInitials($name) {
 }
 
 function safeProgramme($programme, $role) {
-    if ($role === 'admin') {
+    if ($role === 'admin' || $role === 'supervisor') {
         return '-';
     }
     return !empty($programme) ? $programme : '-';
+}
+
+function safeDepartmentOrCompany($user) {
+    if (($user['role'] ?? '') === 'supervisor') {
+        return !empty($user['company_name']) ? $user['company_name'] : '-';
+    }
+    return safeProgramme($user['programme'] ?? '', $user['role'] ?? '');
 }
 
 function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $description, $linkUrl = null)
@@ -490,7 +553,7 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
       flex-shrink: 0;
     }
 
-    .sidebar-user-name {
+    .user-name {
       font-size: 12px;
       font-weight: 500;
       color: rgba(232, 234, 240, 0.55);
@@ -564,7 +627,7 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
 
     .stats-row {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 14px;
       margin-bottom: 18px;
     }
@@ -579,7 +642,23 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
 
     .stat-card {
       padding: 16px 18px;
-      display: block;
+      min-height: 108px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -20px -20px auto;
+      width: 84px;
+      height: 84px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 68%);
+      pointer-events: none;
     }
 
     .stat-label {
@@ -625,12 +704,42 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
       flex-wrap: wrap;
     }
 
+    .panel-header + .filters {
+      margin-top: 2px;
+    }
+
     .panel-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
     .panel-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
+    .directory-note {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .directory-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .directory-chip strong {
+      color: var(--text);
+      font-weight: 700;
+    }
+
     .filters {
       display: grid;
-      grid-template-columns: minmax(260px, 1fr) 180px 180px auto;
+      grid-template-columns: minmax(280px, 1.4fr) 190px 190px 110px;
       gap: 12px;
       align-items: center;
     }
@@ -655,7 +764,12 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
 
     .btn-secondary { cursor: pointer; min-width: 100px; }
 
-    .table-wrap { overflow: hidden; }
+    .table-wrap {
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
 
     table {
       width: 100%;
@@ -699,12 +813,17 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
     }
 
     .role-badge.student { background: rgba(79,142,247,0.12); color: var(--accent); }
-    .role-badge.assessor { background: rgba(240,160,48,0.12); color: var(--warning); }
+    .role-badge.lecturer { background: rgba(240,160,48,0.12); color: var(--warning); }
+    .role-badge.supervisor { background: rgba(255,143,163,0.12); color: var(--danger-soft); }
     .role-badge.admin { background: rgba(124,106,247,0.14); color: var(--accent2); }
     .status-badge.active { background: rgba(52,201,123,0.12); color: var(--success); }
     .status-badge.inactive { background: rgba(224,85,85,0.12); color: var(--danger-soft); }
 
-    .actions { display: flex; gap: 8px; }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: nowrap;
+    }
 
     .icon-btn {
       width: 34px;
@@ -897,8 +1016,12 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
 
     .table-empty { padding: 24px; color: var(--muted); }
 
+    @media (max-width: 1380px) {
+      .stats-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
     @media (max-width: 1200px) {
-      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .filters { grid-template-columns: 1fr 1fr; }
     }
 
@@ -932,7 +1055,7 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
       <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
       Internship Mgmt
     </a>
-    <a class="nav-item" href="result_entry.php">
+    <a class="nav-item" href="view_results.php">
       <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
       Results
     </a>
@@ -940,9 +1063,10 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
 
   <div class="sidebar-footer">
     <div class="sidebar-user">
-      <div class="avatar">AD</div>
-      <div class="sidebar-user-name"><?= htmlspecialchars($_SESSION['full_name'] ?? 'Admin User') ?></div>
+      <div class="avatar"><?php echo htmlspecialchars($initials); ?></div>
+      <div class="user-name"><?php echo htmlspecialchars($userName); ?></div>
     </div>
+
     <a href="logout.php" class="logout-btn">Logout</a>
   </div>
 </nav>
@@ -951,7 +1075,7 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
   <div class="page-header">
     <div>
       <div class="page-title">User Management</div>
-      <div class="page-sub">Manage student, assessor, and admin accounts</div>
+      <div class="page-sub">Manage student, lecturer, supervisor, and admin accounts</div>
     </div>
     <a class="btn btn-primary" href="add_user.php">+ Add User</a>
   </div>
@@ -974,8 +1098,12 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
       <div class="stat-value green" id="studentCount"><?= $counts['student'] ?></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Assessors</div>
-      <div class="stat-value amber" id="assessorCount"><?= $counts['assessor'] ?></div>
+      <div class="stat-label">Lecturers</div>
+      <div class="stat-value amber" id="lecturerCount"><?= $counts['lecturer'] ?></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Supervisors</div>
+      <div class="stat-value amber" id="supervisorCount"><?= $counts['supervisor'] ?></div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Admin</div>
@@ -983,7 +1111,7 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
     </div>
   </div>
 
-  <section class="panel">
+  <section class="panel" style="padding-bottom:14px;">
     <div class="panel-header">
       <div>
         <div class="panel-title">Directory</div>
@@ -1003,7 +1131,8 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
       <select class="filter-select" id="roleFilter" onchange="filterUsers()">
         <option value="all" <?= $initialRoleFilter === 'all' ? 'selected' : '' ?>>All Roles</option>
         <option value="student" <?= $initialRoleFilter === 'student' ? 'selected' : '' ?>>Student</option>
-        <option value="assessor" <?= $initialRoleFilter === 'assessor' ? 'selected' : '' ?>>Assessor</option>
+        <option value="lecturer" <?= $initialRoleFilter === 'lecturer' ? 'selected' : '' ?>>Lecturer</option>
+        <option value="supervisor" <?= $initialRoleFilter === 'supervisor' ? 'selected' : '' ?>>Supervisor</option>
         <option value="admin" <?= $initialRoleFilter === 'admin' ? 'selected' : '' ?>>Admin</option>
       </select>
 
@@ -1013,7 +1142,7 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
         <option value="inactive">Inactive</option>
       </select>
 
-      <button class="btn-secondary" type="button" onclick="window.print()">Export</button>
+      <button class="btn-secondary" type="button" onclick="window.print()">Print</button>
     </div>
   </section>
 
@@ -1023,7 +1152,7 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
         <tr>
           <th>User</th>
           <th>Role</th>
-          <th>Programme / Department</th>
+          <th>Programme / Company</th>
           <th>Email</th>
           <th>Status</th>
           <th>Actions</th>
@@ -1055,7 +1184,7 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
                     <?= htmlspecialchars(ucfirst($user['role'])) ?>
                   </span>
                 </td>
-                <td><?= htmlspecialchars(safeProgramme($user['programme'] ?? '', $user['role'])) ?></td>
+                <td><?= htmlspecialchars(safeDepartmentOrCompany($user)) ?></td>
                 <td><?= htmlspecialchars($user['email']) ?></td>
                 <td>
                   <span class="status-badge <?= htmlspecialchars($user['status']) ?>">
@@ -1074,10 +1203,11 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
                       data-email="<?= htmlspecialchars($user['email']) ?>"
                       data-status="<?= htmlspecialchars($user['status']) ?>"
                       data-programme="<?= htmlspecialchars($user['programme'] ?? '') ?>"
+                      data-company-name="<?= htmlspecialchars($user['company_name'] ?? '') ?>"
                       data-username="<?= htmlspecialchars($user['username']) ?>"
                       data-student-id="<?= htmlspecialchars($user['student_id'] ?? '') ?>"
                     >✎</button>
-                    <?php if ($user['username'] !== 'admin'): ?>
+                    <?php if (!in_array($user['role'], ['admin', 'supervisor'], true)): ?>
                       <button
                         class="icon-btn"
                         type="button"
@@ -1150,24 +1280,41 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
           </div>
         </div>
 
-        <div id="assessorFields" style="display:none;">
+        <div id="lecturerFields" style="display:none;">
           <div class="modal-section-title">Role Details</div>
           <div class="modal-form-grid">
             <div class="modal-form-group">
-              <label for="edit_username">Assessor Username</label>
+              <label for="edit_username">Lecturer Username</label>
               <input type="text" id="edit_username" readonly>
               <div class="modal-hint">Username is locked to avoid login issues.</div>
             </div>
 
             <div class="modal-form-group">
-              <label for="edit_assessor_programme">Programme <span class="required">*</span></label>
-              <select id="edit_assessor_programme" name="programme_assessor">
+              <label for="edit_lecturer_programme">Programme <span class="required">*</span></label>
+              <select id="edit_lecturer_programme" name="programme_lecturer">
                 <option value="">Select Programme</option>
                 <option value="Engineering">Engineering</option>
                 <option value="Arts and Design">Arts and Design</option>
                 <option value="Computer Science">Computer Science</option>
                 <option value="Finance">Finance</option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="supervisorFields" style="display:none;">
+          <div class="modal-section-title">Role Details</div>
+          <div class="modal-form-grid">
+            <div class="modal-form-group">
+              <label for="edit_supervisor_username">Supervisor Username</label>
+              <input type="text" id="edit_supervisor_username" readonly>
+              <div class="modal-hint">Username is locked to avoid login issues.</div>
+            </div>
+
+            <div class="modal-form-group">
+              <label for="edit_supervisor_company">Company</label>
+              <input type="text" id="edit_supervisor_company" name="company_supervisor" placeholder="Company name" readonly>
+              <div class="modal-hint">Company cannot be edited here.</div>
             </div>
           </div>
         </div>
@@ -1309,17 +1456,22 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
     document.getElementById("edit_confirm_password").value = "";
     document.getElementById("passwordFields").classList.remove("show");
 
-    document.getElementById("assessorFields").style.display = "none";
+    document.getElementById("lecturerFields").style.display = "none";
+    document.getElementById("supervisorFields").style.display = "none";
     document.getElementById("studentFields").style.display = "none";
 
     if (editModalOriginalData.role === "student") {
       document.getElementById("studentFields").style.display = "block";
       document.getElementById("edit_student_id").value = editModalOriginalData.student_id || "";
       document.getElementById("edit_student_programme").value = editModalOriginalData.programme || "";
-    } else if (editModalOriginalData.role === "assessor") {
-      document.getElementById("assessorFields").style.display = "block";
+    } else if (editModalOriginalData.role === "lecturer") {
+      document.getElementById("lecturerFields").style.display = "block";
       document.getElementById("edit_username").value = editModalOriginalData.username || "";
-      document.getElementById("edit_assessor_programme").value = editModalOriginalData.programme || "";
+      document.getElementById("edit_lecturer_programme").value = editModalOriginalData.programme || "";
+    } else if (editModalOriginalData.role === "supervisor") {
+      document.getElementById("supervisorFields").style.display = "block";
+      document.getElementById("edit_supervisor_username").value = editModalOriginalData.username || "";
+      document.getElementById("edit_supervisor_company").value = editModalOriginalData.company_name || "";
     }
   }
 
@@ -1337,17 +1489,22 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
     const role = editModalOriginalData.role || "";
     document.getElementById("edit_role").value = role ? role.charAt(0).toUpperCase() + role.slice(1) : "";
 
-    document.getElementById("assessorFields").style.display = "none";
+    document.getElementById("lecturerFields").style.display = "none";
+    document.getElementById("supervisorFields").style.display = "none";
     document.getElementById("studentFields").style.display = "none";
 
     if (role === "student") {
       document.getElementById("studentFields").style.display = "block";
       document.getElementById("edit_student_id").value = editModalOriginalData.student_id || "";
       document.getElementById("edit_student_programme").value = editModalPostedData.programme_student || "";
-    } else if (role === "assessor") {
-      document.getElementById("assessorFields").style.display = "block";
+    } else if (role === "lecturer") {
+      document.getElementById("lecturerFields").style.display = "block";
       document.getElementById("edit_username").value = editModalOriginalData.username || "";
-      document.getElementById("edit_assessor_programme").value = editModalPostedData.programme_assessor || "";
+      document.getElementById("edit_lecturer_programme").value = editModalPostedData.programme_lecturer || "";
+    } else if (role === "supervisor") {
+      document.getElementById("supervisorFields").style.display = "block";
+      document.getElementById("edit_supervisor_username").value = editModalOriginalData.username || "";
+      document.getElementById("edit_supervisor_company").value = editModalPostedData.company_supervisor || "";
     }
 
     if ((editModalPostedData.password || '') !== '' || (editModalPostedData.confirm_password || '') !== '') {
@@ -1396,17 +1553,22 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
     document.getElementById("edit_confirm_password").value = "";
     passwordFields.classList.remove("show");
 
-    document.getElementById("assessorFields").style.display = "none";
+    document.getElementById("lecturerFields").style.display = "none";
+    document.getElementById("supervisorFields").style.display = "none";
     document.getElementById("studentFields").style.display = "none";
 
     if (role === "student") {
       document.getElementById("studentFields").style.display = "block";
       document.getElementById("edit_student_id").value = button.dataset.studentId || "";
       document.getElementById("edit_student_programme").value = button.dataset.programme || "";
-    } else if (role === "assessor") {
-      document.getElementById("assessorFields").style.display = "block";
+    } else if (role === "lecturer") {
+      document.getElementById("lecturerFields").style.display = "block";
       document.getElementById("edit_username").value = button.dataset.username || "";
-      document.getElementById("edit_assessor_programme").value = button.dataset.programme || "";
+      document.getElementById("edit_lecturer_programme").value = button.dataset.programme || "";
+    } else if (role === "supervisor") {
+      document.getElementById("supervisorFields").style.display = "block";
+      document.getElementById("edit_supervisor_username").value = button.dataset.username || "";
+      document.getElementById("edit_supervisor_company").value = button.dataset.companyName || "";
     }
 
     modal.classList.add("show");

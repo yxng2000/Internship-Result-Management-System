@@ -1,60 +1,52 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 header('Content-Type: application/json');
 require_once 'config.php';
-session_start();
 
 $conn = getConnection();
 
-$studentId = null;
+$student_id = isset($_GET['student_id']) ? trim($_GET['student_id']) : '';
 
-// temporary testing mode first
-if (isset($_GET['student_id']) && !empty($_GET['student_id'])) {
-    $studentId = trim($_GET['student_id']);
-}
-
-// later when login is ready, use session
-if (!$studentId && isset($_SESSION['role']) && $_SESSION['role'] === 'student' && !empty($_SESSION['student_id'])) {
-    $studentId = $_SESSION['student_id'];
-}
-
-if (!$studentId) {
+if ($student_id === '') {
     echo json_encode([
         'success' => false,
-        'error' => 'No student selected.'
+        'error'   => 'Student ID is missing.'
     ]);
     exit;
 }
 
 $sql = "
     SELECT
+        i.internship_id,
         s.student_id,
         s.full_name,
         s.programme,
         s.email AS student_email,
 
-        i.internship_id,
         i.company_name,
         i.industry,
         i.start_date,
         i.end_date,
         i.status,
         i.notes,
+        i.updated_at,
 
-        u.full_name AS assessor_name,
-        u.email AS assessor_email,
+        l.full_name AS lecturer_name,
+        l.email     AS lecturer_email,
 
-        a.total_score,
-        a.comments,
-        a.submitted_at
+        sup.full_name AS supervisor_name,
+        sup.email     AS supervisor_email
 
     FROM students s
     LEFT JOIN internships i
         ON s.student_id = i.student_id
-    LEFT JOIN users u
-        ON i.assessor_id = u.user_id
-       AND u.role = 'assessor'
-    LEFT JOIN assessments a
-        ON i.internship_id = a.internship_id
+    LEFT JOIN users l
+        ON i.lecturer_id = l.user_id
+    LEFT JOIN users sup
+        ON i.supervisor_id = sup.user_id
     WHERE s.student_id = ?
     LIMIT 1
 ";
@@ -64,53 +56,45 @@ $stmt = $conn->prepare($sql);
 if (!$stmt) {
     echo json_encode([
         'success' => false,
-        'error' => 'Prepare failed: ' . $conn->error
+        'error'   => 'Prepare failed: ' . $conn->error
     ]);
     exit;
 }
 
-$stmt->bind_param("s", $studentId);
-$stmt->execute();
+$stmt->bind_param("s", $student_id);
+
+if (!$stmt->execute()) {
+    echo json_encode([
+        'success' => false,
+        'error'   => 'Execute failed: ' . $stmt->error
+    ]);
+    $stmt->close();
+    $conn->close();
+    exit;
+}
+
 $result = $stmt->get_result();
 $row = $result->fetch_assoc();
 
 if (!$row) {
     echo json_encode([
         'success' => false,
-        'error' => 'Student record not found.'
+        'error'   => 'No internship record found for this student.'
     ]);
+    $stmt->close();
+    $conn->close();
     exit;
 }
 
-$assessmentStatus = 'Not Assigned';
-if ($row['status'] === 'pending') {
-    $assessmentStatus = 'Pending Evaluation';
-} elseif ($row['status'] === 'completed') {
-    $assessmentStatus = 'Completed';
+if (empty($row['status'])) {
+    $row['status'] = 'unassigned';
 }
 
 echo json_encode([
     'success' => true,
-    'data' => [
-        'student_id'        => $row['student_id'],
-        'full_name'         => $row['full_name'],
-        'programme'         => $row['programme'],
-        'student_email'     => $row['student_email'],
+    'data'    => $row
+]);
 
-        'internship_id'     => $row['internship_id'],
-        'company_name'      => $row['company_name'],
-        'industry'          => $row['industry'],
-        'start_date'        => $row['start_date'],
-        'end_date'          => $row['end_date'],
-        'status'            => $row['status'] ?? 'unassigned',
-        'notes'             => $row['notes'] ?? '',
-
-        'assessor_name'     => $row['assessor_name'],
-        'assessor_email'    => $row['assessor_email'],
-
-        'assessment_status' => $assessmentStatus,
-        'total_score'       => $row['total_score'],
-        'comments'          => $row['comments'],
-        'submitted_at'      => $row['submitted_at']
-    ]
-], JSON_UNESCAPED_UNICODE);
+$stmt->close();
+$conn->close();
+?>

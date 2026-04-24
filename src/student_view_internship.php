@@ -6,8 +6,8 @@ require_once 'config.php';
 
 $conn = getConnection();
 
-$user_id = (int)($_SESSION['user_id'] ?? 0);
-$full_name = $_SESSION['full_name'] ?? 'Student User';
+$user_id    = (int)($_SESSION['user_id'] ?? 0);
+$full_name  = $_SESSION['full_name'] ?? 'Student User';
 $student_id = $_SESSION['student_id'] ?? '';
 
 function e($value) {
@@ -32,7 +32,12 @@ function get_initials($name) {
 }
 
 if ($user_id > 0) {
-    $stmt = $conn->prepare("SELECT full_name FROM users WHERE user_id = ? AND role = 'student' LIMIT 1");
+    $stmt = $conn->prepare("
+        SELECT full_name
+        FROM users
+        WHERE user_id = ? AND role = 'student'
+        LIMIT 1
+    ");
     if ($stmt) {
         $stmt->bind_param("i", $user_id);
         if ($stmt->execute()) {
@@ -93,7 +98,9 @@ $avatar = get_initials($full_name);
     flex-direction: column;
     padding: 24px 0;
     position: fixed;
-    top: 0; left: 0; bottom: 0;
+    top: 0;
+    left: 0;
+    bottom: 0;
   }
 
   .logo {
@@ -142,7 +149,6 @@ $avatar = get_initials($full_name);
     background: rgba(79,142,247,0.07);
   }
 
-  /* admin dashboard style footer/logout */
   .sidebar-footer {
     margin-top: auto;
     padding: 16px 20px;
@@ -205,6 +211,7 @@ $avatar = get_initials($full_name);
     color: #ff7b7b;
   }
 
+  /* ===== MAIN ===== */
   .main {
     margin-left: 220px;
     flex: 1;
@@ -214,9 +221,10 @@ $avatar = get_initials($full_name);
 
   .page-header {
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 28px;
+    gap: 24px;
+    margin-bottom: 18px;
   }
 
   .page-title {
@@ -231,54 +239,81 @@ $avatar = get_initials($full_name);
     margin-top: 4px;
   }
 
-  .status-badge {
-    display: inline-block;
-    padding: 6px 12px;
-    border-radius: 99px;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
+  /* 更大但低调的 status */
+  .status-panel {
+    min-width: 300px;
+    background: linear-gradient(180deg, rgba(22,24,31,0.98), rgba(18,20,27,0.98));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
   }
 
-  .status-completed {
+  .status-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: rgba(52,201,123,0.12);
+    border: 1px solid rgba(52,201,123,0.18);
     color: var(--success);
+    flex-shrink: 0;
   }
 
-  .status-pending {
-    background: rgba(240,160,48,0.12);
-    color: var(--warning);
+  .status-copy {
+    min-width: 0;
   }
 
-  .status-unassigned {
-    background: rgba(107,112,128,0.12);
+  .status-label-top {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     color: var(--muted);
+    margin-bottom: 4px;
   }
 
-  .grid-2 {
+  .status-value {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .status-value.completed { color: var(--success); }
+  .status-value.pending { color: var(--warning); }
+  .status-value.unassigned { color: #9aa0b1; }
+
+  .content-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: 18px;
     margin-bottom: 18px;
+    align-items: stretch;
   }
 
   .card {
-    background: var(--surface);
+    background: linear-gradient(180deg, rgba(22,24,31,0.98), rgba(18,20,27,0.98));
     border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 20px;
+    border-radius: 14px;
+    padding: 22px;
+    min-height: 452px;
+    display: flex;
+    flex-direction: column;
   }
 
   .card-title {
     font-size: 12px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 16px;
+    color: #7d8498;
+    margin-bottom: 20px;
   }
 
   .student-name {
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
     margin-bottom: 8px;
   }
@@ -286,39 +321,35 @@ $avatar = get_initials($full_name);
   .student-meta {
     font-size: 13px;
     color: var(--muted);
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
 
   .student-id {
     font-family: var(--mono);
     font-size: 12px;
     color: var(--accent);
-    margin-bottom: 10px;
+    margin-bottom: 18px;
   }
 
   .info-list {
     display: grid;
-    gap: 12px;
+    gap: 0;
+    margin-top: auto;
   }
 
   .info-row {
     display: flex;
     justify-content: space-between;
-    gap: 12px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .info-row:last-child {
-    border-bottom: none;
-    padding-bottom: 0;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
   }
 
   .info-label {
-    color: var(--muted);
+    color: #9aa0b1;
     font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    line-height: 1.4;
   }
 
   .info-value {
@@ -326,67 +357,59 @@ $avatar = get_initials($full_name);
     font-weight: 600;
     text-align: right;
     word-break: break-word;
-  }
-
-  .details-card {
-    margin-bottom: 18px;
-  }
-
-  .details-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 18px 22px;
-  }
-
-  .field {
-    padding: 14px 16px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--surface2);
-  }
-
-  .field-label {
-    font-size: 11px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 8px;
-  }
-
-  .field-value {
-    font-size: 14px;
-    font-weight: 600;
     line-height: 1.45;
+    max-width: 62%;
   }
 
-  .field-value.mono {
-    font-family: var(--mono);
-    font-size: 13px;
-  }
-
-  .long-box {
-    margin-top: 18px;
-    padding: 16px;
+  .remarks-card {
+    background: linear-gradient(180deg, rgba(22,24,31,0.98), rgba(18,20,27,0.98));
     border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--surface2);
+    border-radius: 14px;
+    padding: 22px;
   }
 
-  .long-text {
+  .remarks-title {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #7d8498;
+    margin-bottom: 20px;
+  }
+
+  .remarks-text {
     color: var(--text);
     font-size: 14px;
-    line-height: 1.6;
+    line-height: 1.7;
+    min-height: 72px;
+    white-space: pre-wrap;
   }
 
-  @media (max-width: 920px) {
-    .grid-2,
-    .details-grid {
+  @media (max-width: 1100px) {
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .status-panel {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .content-grid {
       grid-template-columns: 1fr;
     }
 
+    .card {
+      min-height: auto;
+    }
+  }
+
+  @media (max-width: 920px) {
     .main {
       padding: 24px 20px;
+      margin-left: 0;
     }
+
   }
 </style>
 </head>
@@ -439,12 +462,24 @@ $avatar = get_initials($full_name);
       <div class="page-title">My Internship</div>
       <div class="page-sub">View your internship placement details and contact information</div>
     </div>
-    <span class="status-badge status-unassigned" id="statusBadge">—</span>
+
+    <div class="status-panel">
+      <div class="status-icon" id="statusIcon">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
+      </div>
+      <div class="status-copy">
+        <div class="status-label-top">Internship Status</div>
+        <div class="status-value unassigned" id="statusBadge">—</div>
+      </div>
+    </div>
   </div>
 
-  <div class="grid-2">
+  <div class="content-grid">
     <section class="card">
       <div class="card-title">Student Profile</div>
+
       <div class="student-name" id="studentName">—</div>
       <div class="student-meta" id="studentProgramme">—</div>
       <div class="student-id" id="studentId">—</div>
@@ -454,67 +489,60 @@ $avatar = get_initials($full_name);
           <span class="info-label">Student Email</span>
           <span class="info-value" id="studentEmail">—</span>
         </div>
+        <div class="info-row">
+          <span class="info-label">Company</span>
+          <span class="info-value" id="profileCompany">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Industry</span>
+          <span class="info-value" id="placementIndustry">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Internship Period</span>
+          <span class="info-value" id="placementPeriod">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Duration</span>
+          <span class="info-value" id="placementDuration">—</span>
+        </div>
       </div>
     </section>
 
     <section class="card">
-      <div class="card-title">Internship Overview</div>
+      <div class="card-title">Internship Contacts</div>
+
       <div class="info-list">
         <div class="info-row">
-          <span class="info-label">Company</span>
-          <span class="info-value" id="overviewCompany">—</span>
+          <span class="info-label">Lecturer</span>
+          <span class="info-value" id="overviewLecturer">—</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Assessor</span>
-          <span class="info-value" id="overviewAssessor">—</span>
+          <span class="info-label">Lecturer Email</span>
+          <span class="info-value" id="overviewLecturerEmail">—</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Assessor Email</span>
-          <span class="info-value" id="overviewAssessorEmail">—</span>
+          <span class="info-label">Supervisor</span>
+          <span class="info-value" id="overviewSupervisor">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Supervisor Email</span>
+          <span class="info-value" id="overviewSupervisorEmail">—</span>
         </div>
         <div class="info-row">
           <span class="info-label">Internship ID</span>
           <span class="info-value" id="overviewInternshipId">—</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Status</span>
-          <span class="info-value" id="overviewStatus">—</span>
+          <span class="info-label">Last Updated</span>
+          <span class="info-value" id="placementUpdated">—</span>
         </div>
       </div>
     </section>
   </div>
 
-  <section class="card details-card">
-    <div class="card-title">Placement Details</div>
-    <div class="details-grid">
-      <div class="field">
-        <div class="field-label">Industry</div>
-        <div class="field-value" id="placementIndustry">—</div>
-      </div>
-
-      <div class="field">
-        <div class="field-label">Internship Period</div>
-        <div class="field-value" id="placementPeriod">—</div>
-      </div>
-
-      <div class="field">
-        <div class="field-label">Duration</div>
-        <div class="field-value" id="placementDuration">—</div>
-      </div>
-
-      <div class="field">
-        <div class="field-label">Last Updated</div>
-        <div class="field-value" id="placementUpdated">—</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="card">
-    <div class="card-title">Notes</div>
-    <div class="long-box" style="margin-top:0;">
-      <div class="field-label" style="margin-bottom:10px;">Placement Remarks</div>
-      <div class="long-text" id="placementNotes">—</div>
-    </div>
+  <section class="remarks-card">
+    <div class="remarks-title">Placement Remarks</div>
+    <div class="remarks-text" id="placementNotes">—</div>
   </section>
 
 </main>
@@ -524,13 +552,7 @@ $avatar = get_initials($full_name);
 
   function getInitials(name) {
     if (!name) return "—";
-
-    const words = name.trim().split(" ").filter(Boolean);
-
-    if (words.length === 0) return "—";
-    if (words.length === 1) return words[0][0].toUpperCase();
-
-    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    return name.split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase();
   }
 
   function formatDate(dateStr) {
@@ -555,17 +577,6 @@ $avatar = get_initials($full_name);
       hour: "2-digit",
       minute: "2-digit"
     });
-  }
-
-  function getStatusClass(status) {
-    if (status === "completed") return "status-completed";
-    if (status === "pending") return "status-pending";
-    return "status-unassigned";
-  }
-
-  function capitalize(text) {
-    if (!text) return "—";
-    return text.charAt(0).toUpperCase() + text.slice(1);
   }
 
   function calculateDuration(startDate, endDate) {
@@ -593,30 +604,81 @@ $avatar = get_initials($full_name);
     return `${formatDate(startDate)} – ${formatDate(endDate)}`;
   }
 
+  function normalizeStatus(status) {
+    if (!status) return "unassigned";
+    return String(status).toLowerCase();
+  }
+
+  function capitalize(text) {
+    if (!text) return "—";
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  function applyStatusStyle(status) {
+    const badge = document.getElementById("statusBadge");
+    const icon  = document.getElementById("statusIcon");
+    const normalized = normalizeStatus(status);
+
+    badge.textContent = capitalize(normalized);
+    badge.className = `status-value ${normalized}`;
+
+    if (normalized === "completed") {
+      icon.style.background = "rgba(52,201,123,0.12)";
+      icon.style.border = "1px solid rgba(52,201,123,0.18)";
+      icon.style.color = "var(--success)";
+      icon.innerHTML = `
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
+      `;
+    } else if (normalized === "pending") {
+      icon.style.background = "rgba(240,160,48,0.12)";
+      icon.style.border = "1px solid rgba(240,160,48,0.18)";
+      icon.style.color = "var(--warning)";
+      icon.innerHTML = `
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 7v5l3 3"/>
+        </svg>
+      `;
+    } else {
+      icon.style.background = "rgba(107,112,128,0.12)";
+      icon.style.border = "1px solid rgba(107,112,128,0.18)";
+      icon.style.color = "#9aa0b1";
+      icon.innerHTML = `
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 8v4"/>
+          <path d="M12 16h.01"/>
+        </svg>
+      `;
+    }
+  }
+
   function loadInternshipDetails(data) {
     document.getElementById("userName").textContent = data.full_name || "Student";
-    document.getElementById("userAvatar").textContent = getInitials(data.full_name);
+    document.getElementById("userAvatar").textContent = getInitials(data.full_name || "Student");
 
     document.getElementById("studentName").textContent = data.full_name || "—";
     document.getElementById("studentProgramme").textContent = data.programme || "—";
     document.getElementById("studentId").textContent = data.student_id || "—";
     document.getElementById("studentEmail").textContent = data.student_email || "—";
 
-    document.getElementById("overviewCompany").textContent = data.company_name || "Not assigned";
-    document.getElementById("overviewAssessor").textContent = data.assessor_name || "Not assigned";
-    document.getElementById("overviewAssessorEmail").textContent = data.assessor_email || "Not available";
-    document.getElementById("overviewInternshipId").textContent = data.internship_id || "—";
-    document.getElementById("overviewStatus").textContent = capitalize(data.status);
-
+    document.getElementById("profileCompany").textContent = data.company_name || "Not assigned";
     document.getElementById("placementIndustry").textContent = data.industry || "Not available";
     document.getElementById("placementPeriod").textContent = buildPeriod(data.start_date, data.end_date);
     document.getElementById("placementDuration").textContent = calculateDuration(data.start_date, data.end_date);
+
+    document.getElementById("overviewLecturer").textContent = data.lecturer_name || "Not assigned";
+    document.getElementById("overviewLecturerEmail").textContent = data.lecturer_email || "Not available";
+    document.getElementById("overviewSupervisor").textContent = data.supervisor_name || "Not assigned";
+    document.getElementById("overviewSupervisorEmail").textContent = data.supervisor_email || "Not available";
+    document.getElementById("overviewInternshipId").textContent = data.internship_id || "—";
     document.getElementById("placementUpdated").textContent = data.updated_at ? formatDateTime(data.updated_at) : "Not available";
+
     document.getElementById("placementNotes").textContent = data.notes || "No notes available.";
 
-    const badge = document.getElementById("statusBadge");
-    badge.textContent = capitalize(data.status);
-    badge.className = `status-badge ${getStatusClass(data.status)}`;
+    applyStatusStyle(data.status);
   }
 
   function showError(message) {
@@ -625,21 +687,21 @@ $avatar = get_initials($full_name);
     document.getElementById("studentId").textContent = "—";
     document.getElementById("studentEmail").textContent = "—";
 
-    document.getElementById("overviewCompany").textContent = "—";
-    document.getElementById("overviewAssessor").textContent = "—";
-    document.getElementById("overviewAssessorEmail").textContent = "—";
-    document.getElementById("overviewInternshipId").textContent = "—";
-    document.getElementById("overviewStatus").textContent = "—";
-
+    document.getElementById("profileCompany").textContent = "—";
     document.getElementById("placementIndustry").textContent = "—";
     document.getElementById("placementPeriod").textContent = "—";
     document.getElementById("placementDuration").textContent = "—";
+
+    document.getElementById("overviewLecturer").textContent = "—";
+    document.getElementById("overviewLecturerEmail").textContent = "—";
+    document.getElementById("overviewSupervisor").textContent = "—";
+    document.getElementById("overviewSupervisorEmail").textContent = "—";
+    document.getElementById("overviewInternshipId").textContent = "—";
     document.getElementById("placementUpdated").textContent = "—";
+
     document.getElementById("placementNotes").textContent = "No data available.";
 
-    const badge = document.getElementById("statusBadge");
-    badge.textContent = "Unavailable";
-    badge.className = "status-badge status-unassigned";
+    applyStatusStyle("unassigned");
   }
 
   function loadPage() {

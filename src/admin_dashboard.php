@@ -1,9 +1,35 @@
 <?php
+session_start();
 require_once 'auth.php';
 requireRole('admin');
 require_once 'config.php';
 
 $conn = getConnection();
+$user_id   = (int)($_SESSION['user_id'] ?? 0);
+$userName  = $_SESSION['full_name'] ?? 'Admin User';
+
+if ($user_id > 0) {
+    $stmt = $conn->prepare("SELECT full_name FROM users WHERE user_id = ? LIMIT 1");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($row && !empty($row['full_name'])) {
+        $userName = $row['full_name'];
+        $_SESSION['full_name'] = $row['full_name']; // 顺便把 session 也更新
+    }
+}
+
+$parts = explode(' ', trim($userName));
+$initials = '';
+
+foreach ($parts as $part) {
+    if ($part !== '') {
+        $initials .= strtoupper($part[0]);
+    }
+    if (strlen($initials) >= 2) break; 
+}
 
 function scalar_query(mysqli $conn, string $sql): int {
     $result = mysqli_query($conn, $sql);
@@ -17,11 +43,34 @@ function get_dashboard_stats(mysqli $conn): array {
     return [
         'totalUsers' => scalar_query($conn, "SELECT COUNT(*) AS total FROM users"),
         'totalStudents' => scalar_query($conn, "SELECT COUNT(*) AS total FROM users WHERE role = 'student'"),
-        'totalAssessors' => scalar_query($conn, "SELECT COUNT(*) AS total FROM users WHERE role IN ('lecturer','supervisor')"),
+        'totalLecturers' => scalar_query($conn, "SELECT COUNT(*) AS total FROM users WHERE role = 'lecturer'"),
+        'totalSupervisors' => scalar_query($conn, "SELECT COUNT(*) AS total FROM users WHERE role = 'supervisor'"),
         'totalAdmins' => scalar_query($conn, "SELECT COUNT(*) AS total FROM users WHERE role = 'admin'"),
-        'unassignedCount' => scalar_query($conn, "SELECT COUNT(*) AS total FROM internships WHERE status = 'unassigned'"),
+        'unassignedCount' => scalar_query($conn, "
+            SELECT COUNT(*) AS total
+            FROM internships
+            WHERE lecturer_id IS NULL
+               OR supervisor_id IS NULL
+               OR company_name IS NULL
+               OR start_date IS NULL
+               OR end_date IS NULL
+               OR status = 'unassigned'
+        "),
         'pendingCount' => scalar_query($conn, "SELECT COUNT(*) AS total FROM internships WHERE status = 'pending'"),
         'completedCount' => scalar_query($conn, "SELECT COUNT(*) AS total FROM internships WHERE status = 'completed'"),
+        'pendingEvaluationCount' => scalar_query($conn, "
+            SELECT COUNT(*) AS total
+            FROM internships i
+            LEFT JOIN assessments lecturer_assessment
+                ON lecturer_assessment.internship_id = i.internship_id
+               AND lecturer_assessment.assessor_type = 'lecturer'
+            LEFT JOIN assessments supervisor_assessment
+                ON supervisor_assessment.internship_id = i.internship_id
+               AND supervisor_assessment.assessor_type = 'supervisor'
+            WHERE i.lecturer_id IS NOT NULL
+              AND i.supervisor_id IS NOT NULL
+              AND (lecturer_assessment.assessment_id IS NULL OR supervisor_assessment.assessment_id IS NULL)
+        "),
     ];
 }
 
@@ -33,8 +82,8 @@ function get_attention_items(array $stats): array {
         [
             'title' => $unassigned . ' student' . ($unassigned === 1 ? '' : 's') . ' not assigned',
             'text' => $unassigned > 0
-                ? 'There ' . ($unassigned === 1 ? 'is' : 'are') . ' still ' . $unassigned . ' student' . ($unassigned === 1 ? '' : 's') . ' without an assigned lecturer/supervisor or internship assignment.'
-                : 'All students currently have an assigned lecturer/supervisor and internship record.',
+                ? 'There ' . ($unassigned === 1 ? 'is' : 'are') . ' still ' . $unassigned . ' student' . ($unassigned === 1 ? '' : 's') . ' without a complete lecturer, supervisor, or internship assignment.'
+                : 'All students currently have complete lecturer, supervisor, and internship records.',
             'tag' => $unassigned > 0 ? 'Needs action' : 'Resolved',
             'tagClass' => $unassigned > 0 ? 'tag-danger' : 'tag-success',
         ],
@@ -89,20 +138,47 @@ function get_pending_evaluations(mysqli $conn, int $limit = 5): array {
     $items = [];
     $sql = "
         SELECT
-            i.status,
             s.full_name AS student_name,
             CASE
                 WHEN l.full_name IS NOT NULL AND su.full_name IS NOT NULL THEN CONCAT(l.full_name, ' / ', su.full_name)
                 WHEN l.full_name IS NOT NULL THEN l.full_name
                 WHEN su.full_name IS NOT NULL THEN su.full_name
                 ELSE '-'
-            END AS assigned_staff_name
+            END AS assigned_staff_name,
+            CASE
+                WHEN lecturer_assessment.assessment_id IS NULL AND supervisor_assessment.assessment_id IS NULL THEN 'Awaiting both'
+                WHEN lecturer_assessment.assessment_id IS NULL THEN 'Lecturer pending'
+                WHEN supervisor_assessment.assessment_id IS NULL THEN 'Supervisor pending'
+                ELSE 'Completed'
+            END AS evaluation_status,
+            GREATEST(
+                COALESCE(lecturer_assessment.updated_at, '1970-01-01 00:00:00'),
+                COALESCE(supervisor_assessment.updated_at, '1970-01-01 00:00:00'),
+                COALESCE(i.updated_at, '1970-01-01 00:00:00')
+            ) AS sort_updated_at,
+            i.internship_id
         FROM internships i
         JOIN students s ON i.student_id = s.student_id
         LEFT JOIN users l ON i.lecturer_id = l.user_id
         LEFT JOIN users su ON i.supervisor_id = su.user_id
-        WHERE i.status IN ('pending', 'unassigned')
-        ORDER BY FIELD(i.status, 'pending', 'unassigned'), i.updated_at DESC, i.internship_id DESC
+        LEFT JOIN assessments lecturer_assessment
+            ON lecturer_assessment.internship_id = i.internship_id
+           AND lecturer_assessment.assessor_type = 'lecturer'
+        LEFT JOIN assessments supervisor_assessment
+            ON supervisor_assessment.internship_id = i.internship_id
+           AND supervisor_assessment.assessor_type = 'supervisor'
+        WHERE i.lecturer_id IS NOT NULL
+          AND i.supervisor_id IS NOT NULL
+          AND (lecturer_assessment.assessment_id IS NULL OR supervisor_assessment.assessment_id IS NULL)
+        ORDER BY
+            CASE
+                WHEN lecturer_assessment.assessment_id IS NULL AND supervisor_assessment.assessment_id IS NULL THEN 1
+                WHEN lecturer_assessment.assessment_id IS NULL THEN 2
+                WHEN supervisor_assessment.assessment_id IS NULL THEN 3
+                ELSE 4
+            END,
+            sort_updated_at DESC,
+            i.internship_id DESC
         LIMIT ?
     ";
 
@@ -111,10 +187,18 @@ function get_pending_evaluations(mysqli $conn, int $limit = 5): array {
         $stmt->execute();
         $result = $stmt->get_result();
         while ($row = $result->fetch_assoc()) {
+            $statusClass = 'status-pending';
+            if ($row['evaluation_status'] === 'Awaiting both') {
+                $statusClass = 'status-unassigned';
+            } elseif ($row['evaluation_status'] === 'Supervisor pending') {
+                $statusClass = 'status-info';
+            }
+
             $items[] = [
                 'student_name' => $row['student_name'],
                 'assigned_staff_name' => $row['assigned_staff_name'],
-                'status' => $row['status'],
+                'status' => $row['evaluation_status'],
+                'status_class' => $statusClass,
             ];
         }
         $stmt->close();
@@ -292,8 +376,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
   .main {
     margin-left: 220px;
     flex: 1;
+    width: calc(100vw - 220px);
+    max-width: none;
     padding: 32px 36px;
-    max-width: 1220px;
+    box-sizing: border-box;
   }
 
   .page-header {
@@ -309,7 +395,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
 
   .stats-row {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(8, 1fr);
     gap: 14px;
     margin-bottom: 28px;
   }
@@ -486,6 +572,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
   .tag-success { background: rgba(52,201,123,0.12); color: var(--success); }
   .status-pending { background: rgba(240,160,48,0.12); color: var(--warning); }
   .status-unassigned { background: rgba(124,106,247,0.14); color: var(--accent2); }
+  .status-info { background: rgba(102,212,244,0.14); color: var(--info); }
   .status-completed { background: rgba(52,201,123,0.12); color: var(--success); }
 
   .table-wrap { overflow: hidden; }
@@ -558,8 +645,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
 
   <div class="sidebar-footer">
     <div class="sidebar-user">
-      <div class="avatar">AD</div>
-      <div class="user-name">Admin User</div>
+      <div class="avatar"><?php echo htmlspecialchars($initials); ?></div>
+      <div class="user-name"><?php echo htmlspecialchars($userName); ?></div>
     </div>
 
     <a href="logout.php" class="logout-btn">Logout</a>
@@ -569,8 +656,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
 <main class="main">
   <div class="page-header">
     <div>
-      <div class="page-title">Welcome back, Admin</div>
-      <div class="page-sub">Here is a quick overview of internship management system activities and current status</div>
+      <div class="page-title">Welcome back, <?php echo htmlspecialchars($userName); ?></div>      <div class="page-sub">Here is a quick overview of internship management system activities and current status</div>
     </div>
   </div>
 
@@ -586,8 +672,13 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
     </div>
 
     <div class="stat-card">
-      <div class="stat-label">Lecturer + Supervisor</div>
-      <div class="stat-value amber" id="stat-totalAssessors"><?php echo $stats['totalAssessors']; ?></div>
+      <div class="stat-label">Lecturers</div>
+      <div class="stat-value amber" id="stat-totalLecturers"><?php echo $stats['totalLecturers']; ?></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Supervisors</div>
+      <div class="stat-value amber" id="stat-totalSupervisors"><?php echo $stats['totalSupervisors']; ?></div>
     </div>
 
     <div class="stat-card">
@@ -631,12 +722,12 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
           <p>Create a new student, lecturer, supervisor, or admin account directly from the user management module.</p>
         </a>
 
-        <a class="quick-card" href="internship_list.html">
+        <a class="quick-card" href="internship_list.php">
           <h4>Manage Internships</h4>
           <p>View, edit, and track all internship assignments and status records.</p>
         </a>
 
-        <a class="quick-card" href="view_results.html">
+        <a class="quick-card" href="view_results.php">
           <h4>View Results</h4>
           <p>Review submitted evaluations and final assessment results for students.</p>
         </a>
@@ -694,9 +785,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
       <div class="panel-header">
         <div>
           <div class="panel-title">Pending Evaluations</div>
-          <div class="panel-sub">Students that still need assessment completion</div>
+          <div class="panel-sub">Students whose lecturer/supervisor evaluation results are still pending.</div>
         </div>
-        <a href="view_results.html" class="btn">Open Results</a>
+        <a href="view_results.php" class="btn">Open Results</a>
       </div>
 
       <div class="table-wrap">
@@ -715,15 +806,15 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
                   <td><?php echo htmlspecialchars($row['student_name']); ?></td>
                   <td><?php echo htmlspecialchars($row['assigned_staff_name']); ?></td>
                   <td>
-                    <span class="status-badge <?php echo $row['status'] === 'unassigned' ? 'status-unassigned' : 'status-pending'; ?>">
-                      <?php echo ucfirst(htmlspecialchars($row['status'])); ?>
+                    <span class="status-badge <?php echo htmlspecialchars($row['status_class']); ?>">
+                      <?php echo htmlspecialchars($row['status']); ?>
                     </span>
                   </td>
                 </tr>
               <?php endforeach; ?>
             <?php else: ?>
               <tr>
-                <td colspan="3" style="color: var(--muted);">No pending or unassigned internship records found.</td>
+                <td colspan="3" style="color: var(--muted);">No pending evaluation result records found.</td>
               </tr>
             <?php endif; ?>
           </tbody>
@@ -767,24 +858,32 @@ function renderAttention(items) {
 function renderPendingEvaluations(items) {
   const tbody = document.getElementById('pending-evaluations-body');
   if (!tbody) return;
+
   if (!items || !items.length) {
-    tbody.innerHTML = '<tr><td colspan="3" style="color: var(--muted);">No pending or unassigned internship records found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="3" style="color: var(--muted);">No pending evaluation result records found.</td></tr>';
     return;
   }
 
   tbody.innerHTML = items.map(item => {
-    const badgeClass = item.status === 'unassigned' ? 'status-unassigned' : 'status-pending';
-    const statusText = item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1) : '';
+    let badgeClass = 'status-pending';
+
+    if (item.status === 'Awaiting both') {
+      badgeClass = 'status-unassigned';
+    } else if (item.status === 'Supervisor pending') {
+      badgeClass = 'status-info';
+    } else if (item.status === 'Completed') {
+      badgeClass = 'status-completed';
+    }
+
     return `
       <tr>
         <td>${escapeHtml(item.student_name)}</td>
         <td>${escapeHtml(item.assigned_staff_name)}</td>
-        <td><span class="status-badge ${badgeClass}">${escapeHtml(statusText)}</span></td>
+        <td><span class="status-badge ${badgeClass}">${escapeHtml(item.status || '')}</span></td>
       </tr>
     `;
   }).join('');
 }
-
 
 function renderRecentActivities(items) {
   const container = document.getElementById('recent-activities-list');
