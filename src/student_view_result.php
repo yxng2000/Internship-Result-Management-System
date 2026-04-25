@@ -47,7 +47,7 @@ if ($user_id > 0) {
 $avatar = get_initials($full_name);
 
 $query = "
-    SELECT 
+    SELECT
         s.student_id, s.full_name, s.programme, i.company_name, i.status,
         la.total_score AS l_total, sa.total_score AS s_total,
         la.undertaking_tasks AS l_ut, sa.undertaking_tasks AS s_ut,
@@ -128,6 +128,8 @@ $stmt->close();
     --mono:      'DM Mono', monospace;
   }
   body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
+
+  /* Sidebar */
   .sidebar { width: 220px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 0; position: fixed; top: 0; left: 0; bottom: 0; }
   .logo { font-size: 15px; font-weight: 700; letter-spacing: 0.06em; color: var(--accent); padding: 0 20px 28px; border-bottom: 1px solid var(--border); margin-bottom: 16px; text-transform: uppercase; }
   .logo span { color: var(--text); }
@@ -141,11 +143,12 @@ $stmt->close();
   .user-name { font-size: 12px; font-weight: 500; color: rgba(232, 234, 240, 0.55); line-height: 1.3; white-space: nowrap; }
   .logout-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 14px; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: #ff6b6b; font-size: 13px; font-weight: 600; text-decoration: none; transition: all 0.15s ease; flex-shrink: 0; }
   .logout-btn:hover { background: rgba(224, 85, 85, 0.08); border-color: #e05555; color: #ff7b7b; }
-  .main { margin-left: 220px; flex: 1; padding: 40px 48px; max-width: 1220px; }
+  .main { margin-left: 220px; flex: 1; padding: 40px 48px; max-width: 900px; }
   .page-header { margin-bottom: 32px; }
   .page-title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; }
   .page-sub { font-size: 14px; color: var(--muted); }
-  .result-container { display: none; }
+
+  /* Student banner */
   .student-banner { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
   .banner-avatar { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: #fff; flex-shrink: 0; }
   .banner-name { font-size: 18px; font-weight: 700; }
@@ -154,19 +157,38 @@ $stmt->close();
   .detail-group { text-align: right; }
   .detail-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 4px; }
   .detail-value { font-size: 14px; font-weight: 600; }
+
+  /* Score card */
   .score-card { background: linear-gradient(135deg, rgba(79,142,247,0.05), rgba(124,106,247,0.05)); border: 1px solid rgba(79,142,247,0.2); border-radius: var(--radius); padding: 32px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; }
   .score-label { font-size: 14px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
   .score-main { font-size: 48px; font-weight: 700; font-family: var(--mono); line-height: 1; }
-  .grade-badge-large { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 16px; font-size: 28px; font-weight: 700; font-family: var(--mono); background: rgba(52,201,123,0.15); color: var(--success); border: 2px solid rgba(52,201,123,0.3); }
-  .breakdown-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 32px; margin-bottom: 24px; }
-  .section-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
-  .breakdown-row { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 18px 0; border-bottom: 1px solid var(--border); }
-  .breakdown-row:last-child { border-bottom: none; }
-  .breakdown-name { font-size: 15px; font-weight: 500; }
-  .breakdown-score { font-family: var(--mono); font-weight: 700; font-size: 18px; text-align: right; }
-  .score-max-text { font-size: 11px; color: var(--muted); font-weight: 500; }
-  .comments-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 32px; }
-  .comments-text { font-size: 14px; line-height: 1.6; color: var(--text); }
+  .grade-badge-large { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 16px; font-size: 28px; font-weight: 700; font-family: var(--mono); }
+
+  /* Breakdown card */
+  .breakdown-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 28px; margin-bottom: 24px; }
+  .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+
+  /* Each criterion row */
+  .criterion-row { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .criterion-row:last-child { border-bottom: none; }
+  .criterion-info { flex: 1; min-width: 0; }
+  .criterion-name { font-size: 14px; font-weight: 600; }
+  .criterion-weight { display: inline-block; margin-top: 4px; font-size: 11px; font-weight: 600; font-family: var(--mono); color: var(--accent); background: rgba(79,142,247,0.10); padding: 2px 8px; border-radius: 99px; }
+  .criterion-bar-wrap { flex: 1; max-width: 200px; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .criterion-bar { height: 100%; border-radius: 99px; transition: width 0.4s ease; }
+  .criterion-score { font-family: var(--mono); font-size: 16px; font-weight: 700; min-width: 70px; text-align: right; white-space: nowrap; }
+  .criterion-max { font-size: 11px; color: var(--muted); font-weight: 500; }
+
+  /* Pending state */
+  .pending-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 48px 24px; text-align: center; margin-bottom: 24px; }
+  .pending-icon { font-size: 36px; margin-bottom: 16px; opacity: 0.4; }
+  .pending-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+  .pending-sub { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* Comments */
+  .comments-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 28px; }
+  .comment-block { padding: 14px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; font-size: 13.5px; line-height: 1.7; color: var(--text); }
+  .comment-block.empty { color: var(--muted); font-style: italic; }
 </style>
 </head>
 <body>
@@ -198,68 +220,30 @@ $stmt->close();
 <main class="main">
   <div class="page-header">
     <div class="page-title">Internship Assessment Result</div>
-    <div class="page-sub">View your final evaluation and feedback from your assessors.</div>
+    <div class="page-sub">Your final evaluation scores and assessor feedback.</div>
   </div>
 
-  <div class="result-container" id="resultContainer" style="display: block;">
-    <div class="student-banner">
-      <div class="banner-avatar" id="b-avatar">--</div>
-      <div>
-        <div class="banner-name" id="b-name">—</div>
-        <div class="banner-meta" id="b-meta">—</div>
-      </div>
-      <div class="banner-details">
-        <div class="detail-group">
-          <div class="detail-label">Company</div>
-          <div class="detail-value" id="b-company">—</div>
-        </div>
-        <div class="detail-group">
-          <div class="detail-label">Assigned Assessors</div>
-          <div class="detail-value" id="b-assessor" style="text-align: left; line-height: 1.4;">—</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="score-card">
-      <div>
-        <div class="score-label">Final Averaged Score</div>
-        <div class="score-main"><span id="totalScore" style="color: var(--text);">-</span> <span style="font-size: 20px; color: var(--muted);">/ 100.0</span></div>
-      </div>
-      <div class="grade-badge-large" id="gradeBadge">-</div>
-    </div>
-
-    <div class="breakdown-card">
-      <div class="section-title">Criteria Breakdown</div>
-      <div id="breakdownList"></div>
-    </div>
-
-    <div class="comments-card">
-      <div class="section-title" style="border: none; margin-bottom: 12px; padding: 0;">Assessor Feedback</div>
-      <div id="feedbackContainer"></div>
-    </div>
-  </div>
+  <div id="resultContainer"></div>
 </main>
 
 <script>
   const data = <?php echo json_encode($assessment_data); ?>;
 
   const CRITERIA_META = [
-    { key: 'undertaking_tasks',     label: 'Undertaking Tasks',     max: 10 },
-    { key: 'health_safety',         label: 'Health & Safety',       max: 10 },
-    { key: 'theoretical_knowledge', label: 'Theoretical Knowledge', max: 10 },
-    { key: 'report_presentation',   label: 'Report & Presentation', max: 15 },
-    { key: 'clarity_language',      label: 'Clarity & Language',    max: 10 },
-    { key: 'lifelong_learning',     label: 'Lifelong Learning',     max: 15 },
-    { key: 'project_management',    label: 'Project Management',    max: 15 },
-    { key: 'time_management',       label: 'Time Management',       max: 15 },
+    { key: 'undertaking_tasks',     label: 'Undertaking Tasks',     max: 10, weight: '10%' },
+    { key: 'health_safety',         label: 'Health & Safety',       max: 10, weight: '10%' },
+    { key: 'theoretical_knowledge', label: 'Theoretical Knowledge', max: 10, weight: '10%' },
+    { key: 'report_presentation',   label: 'Report & Presentation', max: 15, weight: '15%' },
+    { key: 'clarity_language',      label: 'Clarity & Language',    max: 10, weight: '10%' },
+    { key: 'lifelong_learning',     label: 'Lifelong Learning',     max: 15, weight: '15%' },
+    { key: 'project_management',    label: 'Project Management',    max: 15, weight: '15%' },
+    { key: 'time_management',       label: 'Time Management',       max: 15, weight: '15%' },
   ];
 
-  // SUPER SAFE NUMBER CHECKER
-  function safeNumber(val) {
+  function safeNum(val) {
     if (val === null || val === undefined || val === '') return null;
-    const num = parseFloat(val);
-    if (isNaN(num)) return null;
-    return num;
+    const n = parseFloat(val);
+    return isNaN(n) ? null : n;
   }
 
   function getInitials(name) {
@@ -268,13 +252,13 @@ $stmt->close();
   }
 
   function getGrade(score) {
-    const s = safeNumber(score);
-    if (s === null) return { letter: '-', color: 'var(--muted)', bg: '107,112,128' };
-    if (s >= 80) return { letter: 'A', color: 'var(--success)', bg: '52,201,123' };
-    if (s >= 70) return { letter: 'B', color: 'var(--accent)', bg: '79,142,247' };
-    if (s >= 60) return { letter: 'C', color: 'var(--warning)', bg: '240,160,48' };
-    if (s >= 50) return { letter: 'D', color: 'var(--danger)', bg: '224,85,85' };
-    return { letter: 'F', color: 'var(--danger)', bg: '224,85,85' };
+    const s = safeNum(score);
+    if (s === null) return { letter: '-', color: 'var(--muted)', bg: '107,112,128', border: '107,112,128' };
+    if (s >= 80) return { letter: 'A', color: 'var(--success)', bg: '52,201,123',  border: '52,201,123'  };
+    if (s >= 70) return { letter: 'B', color: 'var(--accent)',  bg: '79,142,247',  border: '79,142,247'  };
+    if (s >= 60) return { letter: 'C', color: 'var(--warning)', bg: '240,160,48',  border: '240,160,48'  };
+    if (s >= 50) return { letter: 'D', color: 'var(--danger)',  bg: '224,85,85',   border: '224,85,85'   };
+    return           { letter: 'F', color: 'var(--danger)',  bg: '224,85,85',   border: '224,85,85'   };
   }
 
   function getBarColor(pct) {
@@ -283,101 +267,155 @@ $stmt->close();
     return 'var(--danger)';
   }
 
-  function escapeHtml(value) {
-    return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  function escHtml(val) {
+    return String(val ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  }
+
+function buildStudentBanner(d) {
+  return `
+    <div class="student-banner">
+      <div class="banner-avatar">${escHtml(getInitials(d.full_name))}</div>
+      <div>
+        <div class="banner-name">${escHtml(d.full_name)}</div>
+        <div class="banner-meta">${escHtml(d.student_id)} · ${escHtml(d.programme)}</div>
+      </div>
+      <div class="banner-details">
+        <div class="detail-group">
+          <div class="detail-label">Company</div>
+          <div class="detail-value">${escHtml(d.company_name || 'Not assigned')}</div>
+        </div>
+        <div class="detail-group">
+          <div class="detail-label">Lecturer</div>
+          <div class="detail-value">${escHtml(d.lecturer_name || 'Not assigned')}</div>
+        </div>
+        <div class="detail-group">
+          <div class="detail-label">Supervisor</div>
+          <div class="detail-value">${escHtml(d.supervisor_name || 'Not assigned')}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+  function buildScoreCard(finalScore) {
+    const gradeInfo = getGrade(finalScore);
+    const scoreText = safeNum(finalScore) !== null
+      ? `<span style="color:${gradeInfo.color}">${parseFloat(finalScore).toFixed(1)}</span>`
+      : `<span style="color:var(--muted)">—</span>`;
+
+    return `
+      <div class="score-card">
+        <div>
+          <div class="score-label">Final Score</div>
+          <div class="score-main">${scoreText} <span style="font-size:20px;color:var(--muted)">/ 100.0</span></div>
+        </div>
+        <div class="grade-badge-large" style="
+          color:${gradeInfo.color};
+          background:rgba(${gradeInfo.bg},0.15);
+          border:2px solid rgba(${gradeInfo.border},0.35);">
+          ${gradeInfo.letter}
+        </div>
+      </div>`;
+  }
+
+  function buildBreakdown(d) {
+    const lTotal = safeNum(d.l_total);
+    const sTotal = safeNum(d.s_total);
+    const bothSubmitted = lTotal !== null && sTotal !== null;
+
+    if (!bothSubmitted) {
+      return `
+        <div class="pending-card">
+          <div class="pending-icon">📋</div>
+          <div class="pending-title">Result not available yet</div>
+          <div class="pending-sub">Your final result will appear once both assessors have submitted their evaluations.</div>
+        </div>`;
+    }
+
+    const rows = CRITERIA_META.map(c => {
+      const lVal = safeNum(d.scores[c.key]?.l) ?? 0;
+      const sVal = safeNum(d.scores[c.key]?.s) ?? 0;
+      const avg  = (lVal + sVal) / 2;
+      const pct  = (avg / c.max) * 100;
+      const barColor = getBarColor(pct);
+
+      return `
+        <div class="criterion-row">
+          <div class="criterion-info">
+            <div class="criterion-name">${c.label}</div>
+            <span class="criterion-weight">${c.weight}</span>
+          </div>
+          <div class="criterion-bar-wrap">
+            <div class="criterion-bar" style="width:${pct.toFixed(1)}%;background:${barColor}"></div>
+          </div>
+          <div class="criterion-score" style="color:${barColor}">
+            ${avg.toFixed(1)} <span class="criterion-max">/ ${c.max}</span>
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="breakdown-card">
+        <div class="section-title">Score Breakdown</div>
+        ${rows}
+      </div>`;
+  }
+
+  function buildComments(d) {
+    const lTotal = safeNum(d.l_total);
+    const sTotal = safeNum(d.s_total);
+    if (lTotal === null && sTotal === null) return '';
+
+    const lComment = (d.lecturer_comments || '').trim();
+    const sComment = (d.supervisor_comments || '').trim();
+
+    // Only show a comments section if at least one assessor left a comment
+    if (!lComment && !sComment) return '';
+
+    const blocks = [];
+
+    if (lComment) {
+      blocks.push(`
+        <div style="margin-bottom:16px;">
+          <div class="section-title" style="border:none;padding:0;margin-bottom:10px;">Lecturer Feedback</div>
+          <div class="comment-block">${escHtml(lComment)}</div>
+        </div>`);
+    }
+
+    if (sComment) {
+      blocks.push(`
+        <div>
+          <div class="section-title" style="border:none;padding:0;margin-bottom:10px;">Supervisor Feedback</div>
+          <div class="comment-block">${escHtml(sComment)}</div>
+        </div>`);
+    }
+
+    return `<div class="comments-card">${blocks.join('')}</div>`;
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('resultContainer');
+
     if (!data) {
-        document.getElementById('resultContainer').innerHTML = '<div style="color:var(--danger); padding: 24px; background: var(--surface); border-radius: var(--radius);">Student record not found.</div>';
-        return;
+      container.innerHTML = `
+        <div class="pending-card">
+          <div class="pending-icon">⚠️</div>
+          <div class="pending-title">Record not found</div>
+          <div class="pending-sub">Your student record could not be loaded. Please contact the administrator.</div>
+        </div>`;
+      return;
     }
 
-    document.getElementById('b-name').textContent = data.full_name || '—';
-    document.getElementById('b-avatar').textContent = getInitials(data.full_name || '');
-    document.getElementById('b-meta').textContent = `${data.student_id || '—'} · ${data.programme || '—'}`;
-    document.getElementById('b-company').textContent = data.company_name || 'Not assigned';
+    const lTotal = safeNum(data.l_total);
+    const sTotal = safeNum(data.s_total);
+    const finalScore = (lTotal !== null && sTotal !== null) ? (lTotal + sTotal) / 2 : null;
 
-    let assessorHTML = '';
-    if (data.lecturer_name) assessorHTML += `<div>${escapeHtml(data.lecturer_name)} <span style="color:var(--muted); font-size:10px;">(L)</span></div>`;
-    if (data.supervisor_name) assessorHTML += `<div style="margin-top: 2px;">${escapeHtml(data.supervisor_name)} <span style="color:var(--muted); font-size:10px;">(S)</span></div>`;
-    document.getElementById('b-assessor').innerHTML = assessorHTML || 'Not assigned';
-
-    const lTotal = safeNumber(data.l_total);
-    const sTotal = safeNumber(data.s_total);
-
-    if (lTotal !== null && sTotal !== null) {
-        const safeTotal = (lTotal + sTotal) / 2;
-        const gradeInfo = getGrade(safeTotal);
-        
-        document.getElementById('totalScore').textContent = safeTotal.toFixed(1);
-        const badge = document.getElementById('gradeBadge');
-        badge.textContent = gradeInfo.letter;
-        badge.style.color = gradeInfo.color;
-        badge.style.borderColor = gradeInfo.color;
-        badge.style.background = `rgba(${gradeInfo.bg}, 0.15)`;
-    }
-
-    let breakdownHTML = '';
-    CRITERIA_META.forEach(c => {
-      const scoresObj = (data.scores && data.scores[c.key]) ? data.scores[c.key] : { l: null, s: null };
-      
-      const l_val = safeNumber(scoresObj.l);
-      const s_val = safeNumber(scoresObj.s);
-
-      const l_text = l_val !== null ? `${l_val.toFixed(1)} / ${c.max.toFixed(1)}` : '<span style="color: var(--muted);">-</span>';
-      const s_text = s_val !== null ? `${s_val.toFixed(1)} / ${c.max.toFixed(1)}` : '<span style="color: var(--muted);">-</span>';
-
-      let avg_text = '<span style="color: var(--muted);">-</span>';
-      let barColor = 'var(--muted)';
-
-      if (l_val !== null && s_val !== null) {
-        const avg_val = (l_val + s_val) / 2;
-        avg_text = avg_val.toFixed(1);
-        const pct = (avg_val / c.max) * 100;
-        barColor = getBarColor(pct);
-      }
-
-      breakdownHTML += `
-        <div class="breakdown-row">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div class="breakdown-name">${c.label}</div>
-            <div class="breakdown-score" style="color:${barColor};">
-              ${avg_text} <span class="score-max-text">/ ${c.max.toFixed(1)} (Avg)</span>
-            </div>
-          </div>
-          
-          <div style="display: flex; gap: 24px; font-size: 13px; color: var(--muted); background: var(--surface2); padding: 10px 14px; border-radius: 8px;">
-            <div style="flex: 1; display: flex; justify-content: space-between;">
-              <span>Lecturer Score:</span>
-              <span style="font-family: var(--mono); color: var(--text);">${l_text}</span>
-            </div>
-            <div style="width: 1px; background: var(--border);"></div>
-            <div style="flex: 1; display: flex; justify-content: space-between;">
-              <span>Supervisor Score:</span>
-              <span style="font-family: var(--mono); color: var(--text);">${s_text}</span>
-            </div>
-          </div>
-        </div>
-      `;
-    });
-    document.getElementById('breakdownList').innerHTML = breakdownHTML;
-
-    const l_comments = (data.lecturer_comments && data.lecturer_comments.trim() !== '') ? escapeHtml(data.lecturer_comments) : '<span style="color: var(--muted); font-style: italic;">No feedback provided yet.</span>';
-    const s_comments = (data.supervisor_comments && data.supervisor_comments.trim() !== '') ? escapeHtml(data.supervisor_comments) : '<span style="color: var(--muted); font-style: italic;">No feedback provided yet.</span>';
-    const l_name_display = data.lecturer_name ? escapeHtml(data.lecturer_name) : 'Lecturer';
-    const s_name_display = data.supervisor_name ? escapeHtml(data.supervisor_name) : 'Supervisor';
-
-    document.getElementById('feedbackContainer').innerHTML = `
-      <div style="margin-bottom: 24px;">
-        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin-bottom: 6px; font-weight: 700;">Lecturer Feedback — ${l_name_display}</div>
-        <div class="comments-text">${l_comments}</div>
-      </div>
-      <div>
-        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent2); margin-bottom: 6px; font-weight: 700;">Supervisor Feedback — ${s_name_display}</div>
-        <div class="comments-text">${s_comments}</div>
-      </div>
-    `;
+    container.innerHTML =
+      buildStudentBanner(data) +
+      buildScoreCard(finalScore) +
+      buildBreakdown(data) +
+      buildComments(data);
   });
 </script>
 </body>
