@@ -273,27 +273,30 @@ $stmt->close();
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
   }
 
-  function buildStudentBanner(d) {
-    const assessorLine = [d.lecturer_name, d.supervisor_name].filter(Boolean).join(' · ') || 'Not assigned';
-    return `
-      <div class="student-banner">
-        <div class="banner-avatar">${escHtml(getInitials(d.full_name))}</div>
-        <div>
-          <div class="banner-name">${escHtml(d.full_name)}</div>
-          <div class="banner-meta">${escHtml(d.student_id)} · ${escHtml(d.programme)}</div>
+function buildStudentBanner(d) {
+  return `
+    <div class="student-banner">
+      <div class="banner-avatar">${escHtml(getInitials(d.full_name))}</div>
+      <div>
+        <div class="banner-name">${escHtml(d.full_name)}</div>
+        <div class="banner-meta">${escHtml(d.student_id)} · ${escHtml(d.programme)}</div>
+      </div>
+      <div class="banner-details">
+        <div class="detail-group">
+          <div class="detail-label">Company</div>
+          <div class="detail-value">${escHtml(d.company_name || 'Not assigned')}</div>
         </div>
-        <div class="banner-details">
-          <div class="detail-group">
-            <div class="detail-label">Company</div>
-            <div class="detail-value">${escHtml(d.company_name || 'Not assigned')}</div>
-          </div>
-          <div class="detail-group">
-            <div class="detail-label">Assessors</div>
-            <div class="detail-value">${escHtml(assessorLine)}</div>
-          </div>
+        <div class="detail-group">
+          <div class="detail-label">Lecturer</div>
+          <div class="detail-value">${escHtml(d.lecturer_name || 'Not assigned')}</div>
         </div>
-      </div>`;
-  }
+        <div class="detail-group">
+          <div class="detail-label">Supervisor</div>
+          <div class="detail-value">${escHtml(d.supervisor_name || 'Not assigned')}</div>
+        </div>
+      </div>
+    </div>`;
+}
 
   function buildScoreCard(finalScore) {
     const gradeInfo = getGrade(finalScore);
