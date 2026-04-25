@@ -2,6 +2,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+session_start();
 header('Content-Type: application/json');
 require_once 'config.php';
 
@@ -13,22 +14,31 @@ function jsonResponse($data) {
 function convertDate($d) {
     if ($d === null || $d === '') return null;
 
-    $parts = explode('/', $d);
-    if (count($parts) !== 3) return false;
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) {
+        [$year, $month, $day] = explode('-', $d);
 
-    $day   = trim($parts[0]);
-    $month = trim($parts[1]);
-    $year  = trim($parts[2]);
+        if (checkdate((int)$month, (int)$day, (int)$year)) {
+            return $d;
+        }
 
-    if (!checkdate((int)$month, (int)$day, (int)$year)) {
         return false;
     }
 
-    return $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT) . '-' . str_pad($day, 2, '0', STR_PAD_LEFT);
+    if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $d)) {
+        [$day, $month, $year] = explode('/', $d);
+
+        if (checkdate((int)$month, (int)$day, (int)$year)) {
+            return $year . '-' . $month . '-' . $day;
+        }
+
+        return false;
+    }
+
+    return false;
 }
 
 /* ============================================================
-   GET -> Load one internship record + lecturers + companies
+   GET -> Load one internship record
    ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -54,18 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             sp.full_name AS supervisor_name,
             i.company_name,
             i.industry,
-            DATE_FORMAT(i.start_date, '%d/%m/%Y') AS start_date,
-            DATE_FORMAT(i.end_date, '%d/%m/%Y')   AS end_date,
+            DATE_FORMAT(i.start_date, '%Y-%m-%d') AS start_date,
+            DATE_FORMAT(i.end_date, '%Y-%m-%d')   AS end_date,
             i.status,
             i.notes,
             DATE_FORMAT(i.updated_at, '%d/%m/%Y') AS last_updated
         FROM internships i
-        JOIN students s
-            ON i.student_id = s.student_id
-        LEFT JOIN users l
-            ON i.lecturer_id = l.user_id
-        LEFT JOIN users sp
-            ON i.supervisor_id = sp.user_id
+        JOIN students s ON i.student_id = s.student_id
+        LEFT JOIN users l ON i.lecturer_id = l.user_id
+        LEFT JOIN users sp ON i.supervisor_id = sp.user_id
         WHERE i.internship_id = ?
         LIMIT 1
     ");
@@ -79,19 +86,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 
     $stmt->bind_param('i', $id);
-
-    if (!$stmt->execute()) {
-        $error = $stmt->error;
-        $stmt->close();
-        $conn->close();
-        jsonResponse([
-            'success' => false,
-            'error' => 'Execute failed: ' . $error
-        ]);
-    }
-
-    $result = $stmt->get_result();
-    $record = $result ? $result->fetch_assoc() : null;
+    $stmt->execute();
+    $record = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
     if (!$record) {
@@ -102,36 +98,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         ]);
     }
 
-    // lecturers list
     $lecturers = [];
-    $lecturerSql = "
+
+    $lecturerResult = $conn->query("
         SELECT
             u.user_id,
             u.full_name,
             u.programme,
             COUNT(i.internship_id) AS student_count
         FROM users u
-        LEFT JOIN internships i
-            ON u.user_id = i.lecturer_id
+        LEFT JOIN internships i ON u.user_id = i.lecturer_id
         WHERE LOWER(u.role) = 'lecturer'
           AND u.status = 'active'
         GROUP BY u.user_id, u.full_name, u.programme
         ORDER BY u.full_name
-    ";
+    ");
 
-    $lecturerResult = $conn->query($lecturerSql);
     if ($lecturerResult) {
         while ($row = $lecturerResult->fetch_assoc()) {
             $lecturers[] = $row;
         }
     }
 
-    // companies + supervisor map
-    // directly from users table, no extra company_supervisor table needed
     $companies = [];
     $companySupervisorMap = [];
 
-    $companySql = "
+    $companyResult = $conn->query("
         SELECT
             user_id AS supervisor_id,
             full_name AS supervisor_name,
@@ -142,9 +134,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
           AND company_name IS NOT NULL
           AND company_name <> ''
         ORDER BY company_name
-    ";
+    ");
 
-    $companyResult = $conn->query($companySql);
     if ($companyResult) {
         while ($row = $companyResult->fetch_assoc()) {
             $companies[] = [
@@ -166,15 +157,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         'lecturers' => $lecturers,
         'companies' => $companies,
         'company_supervisor_map' => $companySupervisorMap,
-        'is_locked' => (strtolower($record['status']) === 'completed'),
-        'message' => (strtolower($record['status']) === 'completed')
+        'is_locked' => strtolower($record['status']) === 'completed',
+        'message' => strtolower($record['status']) === 'completed'
             ? 'This record is completed and should be view-only.'
             : ''
     ]);
 }
 
 /* ============================================================
-   POST -> Update internship record
+   POST -> Update internship record + write activity log
    ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $raw = file_get_contents('php://input');
@@ -197,17 +188,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Invalid record ID.';
     }
 
-    if (!in_array($status, ['unassigned', 'pending'])) {
+    if (!in_array($status, ['unassigned', 'pending'], true)) {
         $errors[] = 'Invalid status. Edit page only allows unassigned or pending.';
     }
 
     $conn = getConnection();
 
-    // check existing record
+    /* Get existing record before update */
     $checkStmt = $conn->prepare("
-        SELECT internship_id, status
-        FROM internships
-        WHERE internship_id = ?
+        SELECT 
+            i.internship_id,
+            i.student_id,
+            s.full_name AS student_name,
+            i.status,
+            i.company_name
+        FROM internships i
+        JOIN students s ON i.student_id = s.student_id
+        WHERE i.internship_id = ?
         LIMIT 1
     ");
 
@@ -220,17 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $checkStmt->bind_param('i', $internship_id);
-
-    if (!$checkStmt->execute()) {
-        $error = $checkStmt->error;
-        $checkStmt->close();
-        $conn->close();
-        jsonResponse([
-            'success' => false,
-            'errors' => ['Execute failed: ' . $error]
-        ]);
-    }
-
+    $checkStmt->execute();
     $existing = $checkStmt->get_result()->fetch_assoc();
     $checkStmt->close();
 
@@ -259,6 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$start_mysql) $errors[] = 'Invalid start date.';
         if (!$end_mysql)   $errors[] = 'Invalid end date.';
+
         if ($start_mysql && $end_mysql && $end_mysql <= $start_mysql) {
             $errors[] = 'End date must be after start date.';
         }
@@ -279,7 +267,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'Industry is required.';
         }
 
-        // verify supervisor matches selected company
         if ($supervisor_id !== null && $supervisor_id > 0 && $company_name !== '') {
             $verifyStmt = $conn->prepare("
                 SELECT user_id
@@ -324,6 +311,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
     }
 
+    /* Update internship */
     $stmt = $conn->prepare("
         UPDATE internships
         SET lecturer_id   = ?,
@@ -359,17 +347,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $internship_id
     );
 
-    if ($stmt->execute()) {
-        $affected = $stmt->affected_rows;
-        $stmt->close();
-        $conn->close();
-
-        jsonResponse([
-            'success' => true,
-            'message' => 'Record updated successfully.',
-            'affected_rows' => $affected
-        ]);
-    } else {
+    if (!$stmt->execute()) {
         $error = $stmt->error;
         $stmt->close();
         $conn->close();
@@ -379,6 +357,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'errors' => ['Database error: ' . $error]
         ]);
     }
+
+    $affected = $stmt->affected_rows;
+    $stmt->close();
+
+    /* Write activity log only after update success */
+    if ($status === 'unassigned') {
+        $title = 'Internship record set to unassigned';
+        $description = $existing['student_name'] . ' was changed to unassigned. Lecturer, supervisor, company and dates were cleared.';
+    } else {
+        $title = 'Internship record updated';
+        $description = $existing['student_name'] . ' internship details were updated. Company: ' . $company_name . '. Status: ' . $status . '.';
+    }
+
+    $action_type = 'edit';
+    $target_type = 'internship';
+    $target_id = $internship_id;
+    $link_url = 'edit_internship.php?id=' . $internship_id;
+
+    $logStmt = $conn->prepare("
+        INSERT INTO activity_logs
+        (action_type, target_type, target_id, title, description, link_url)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ");
+
+    if ($logStmt) {
+        $logStmt->bind_param(
+            'ssisss',
+            $action_type,
+            $target_type,
+            $target_id,
+            $title,
+            $description,
+            $link_url
+        );
+        $logStmt->execute();
+        $logStmt->close();
+    }
+
+    $conn->close();
+
+    jsonResponse([
+        'success' => true,
+        'message' => 'Record updated successfully.',
+        'affected_rows' => $affected
+    ]);
 }
 
 jsonResponse([

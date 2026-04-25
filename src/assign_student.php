@@ -319,6 +319,28 @@ requireRole('admin');
   .assessor-card.selected { border-color: var(--accent); background: rgba(79,142,247,0.1); }
   .assessor-card input[type=radio] { display: none; }
   .assessor-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .assessor-card.invalid {
+    opacity: 0.45;
+    cursor: not-allowed;
+    border-color: rgba(224,85,85,0.35);
+  }
+
+  .assessor-card.invalid:hover {
+    border-color: rgba(224,85,85,0.35);
+    background: var(--surface2);
+  }
+
+  .invalid-badge {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 3px 8px;
+    border-radius: 99px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #ff8a8a;
+    background: rgba(224,85,85,0.12);
+  }
+
   .assessor-dept { font-size: 11px; color: var(--muted); }
   .assessor-load { font-size: 11px; color: var(--muted); margin-top: 6px; }
   .load-bar-wrap { height: 3px; background: var(--border); border-radius: 99px; margin-top: 4px; }
@@ -424,7 +446,7 @@ requireRole('admin');
 
   <div class="page-header">
     <div class="page-title">Assign Student to Internship</div>
-    <div class="page-sub">Link a student to an assessor and record their internship company</div>
+    <div class="page-sub">Link a student to a lecturer and supervisor to record their internship company</div>
   </div>
 
   <!-- Form card -->
@@ -471,7 +493,7 @@ requireRole('admin');
       <div class="assessor-grid" id="assessorGrid"></div>
       <div class="assessor-err" id="err-assessor">
         <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Please select an lecturer.
+        Please select a lecturer.
       </div>
     </div>
 
@@ -523,19 +545,15 @@ requireRole('admin');
 
         <div class="field">
           <label>Start Date <span class="required-star">*</span></label>
-          <input type="date" id="startDate" name="start_date" placeholder="DD/MM/YYYY" maxlength="10" >
-          <div class="err-msg" id="err-start">
-            <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            Please enter a valid start date.
-          </div>
+          <input type="date" id="startDate" name="start_date">
+          <div class="err-msg" id="err-start">Please select a valid start date.</div>
         </div>
+
         <div class="field">
           <label>End Date <span class="required-star">*</span></label>
-          <input type="date" id="endDate" name="end_date" placeholder="DD/MM/YYYY" maxlength="10" >
-          <div class="err-msg" id="err-end">
-            <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            End date must be after start date.
-          </div>
+          <input type="date" id="endDate" name="end_date">
+          <div class="err-msg" id="err-end">End date must be after start date.</div>
+        </div>
         </div>
         <div class="field full">
           <label>Additional Notes</label>
@@ -674,7 +692,12 @@ requireRole('admin');
     loadAssessors(s.prog);
   }
 
-  function selectAssessor(card, userId) {
+  function selectAssessor(card, userId, status) {
+    if (status !== "active") {
+      showError("err-assessor", "This lecturer is inactive and cannot be assigned.");
+      return;
+    }
+
     document.querySelectorAll(".assessor-card").forEach(c => c.classList.remove("selected"));
     card.classList.add("selected");
 
@@ -684,7 +707,7 @@ requireRole('admin');
     selectedLecturer = userId;
     clearError("err-assessor");
   }
-  
+
   function loadAssessors(programme = "") {
     const url = programme
       ? `get_assessors.php?programme=${encodeURIComponent(programme)}`
@@ -705,12 +728,16 @@ requireRole('admin');
           const count = Number(a.student_count) || 0;
           const width = Math.min((count / maxStudents) * 100, 100);
 
+         const status = (a.status || "inactive").toLowerCase();
+          const isInvalid = status !== "active";
+
           return `
-            <label class="assessor-card" onclick="selectAssessor(this, '${a.user_id}')">
-              <input type="radio" name="lecturer" value="${a.user_id}">
+            <label class="assessor-card ${isInvalid ? 'invalid' : ''}" onclick="selectAssessor(this, '${a.user_id}', '${status}')">
+              <input type="radio" name="lecturer" value="${a.user_id}" ${isInvalid ? 'disabled' : ''}>
               <div class="assessor-name">${a.full_name}</div>
               <div class="assessor-dept">${a.programme || ''}</div>
               <div class="assessor-load">${count} / ${maxStudents} students</div>
+              ${isInvalid ? '<div class="invalid-badge">Inactive / Invalid</div>' : ''}
               <div class="load-bar-wrap">
                 <div class="load-bar" style="width:${width}%"></div>
               </div>
@@ -741,7 +768,7 @@ requireRole('admin');
   }
 
     function isValidDate(str) {
-      return !!str;
+      return str && !isNaN(new Date(str).getTime());
     }
 
   function dateToNum(str) {
@@ -767,76 +794,79 @@ requireRole('admin');
   }
 
   function submitForm() {
-  let valid = true;
+    let valid = true;
 
-  const sid = document.getElementById("studentId").value;
-  if (!sid) {
-    showError("err-student", "Please select a student.");
-    markField("studentId", true);
-    valid = false;
-  } else {
-    clearError("err-student");
-    markField("studentId", false);
-  }
+    const sid = document.getElementById("studentId").value;
+    if (!sid) {
+      showError("err-student", "Please select a student.");
+      markField("studentId", true);
+      valid = false;
+    } else {
+      clearError("err-student");
+      markField("studentId", false);
+    }
 
-  if (!selectedLecturer) {
-    document.getElementById("err-assessor").classList.add("visible");
-    valid = false;
-  } else {
-    document.getElementById("err-assessor").classList.remove("visible");
-  }
+    if (!selectedLecturer) {
+      showError("err-assessor", "Please select a lecturer.");
+      valid = false;
+    } else {
+      clearError("err-assessor");
+    }
 
-  const company = document.getElementById("companyName").value.trim();
-  if (!company) {
-    showError("err-company", "Company name is required.");
-    markField("companyName", true);
-    valid = false;
-  } else {
-    clearError("err-company");
-    markField("companyName", false);
-  }
+    const company = document.getElementById("companyName").value.trim();
+    if (!company) {
+      showError("err-company", "Company name is required.");
+      markField("companyName", true);
+      valid = false;
+    } else {
+      clearError("err-company");
+      markField("companyName", false);
+    }
 
-  const start = document.getElementById("startDate").value;
-  if (!isValidDate(start)) {
-    showError("err-start", "Please select a valid start date.");
-    markField("startDate", true);
-    valid = false;
-  } else {
-    clearError("err-start");
-    markField("startDate", false);
-  }
+    const start = document.getElementById("startDate").value;
+    const end = document.getElementById("endDate").value;
 
-  const end = document.getElementById("endDate").value;
-  if (!isValidDate(end)) {
-    showError("err-end", "Please select a valid end date.");
-    markField("endDate", true);
-    valid = false;
-  } else if (isValidDate(start) && dateToNum(end) <= dateToNum(start)) {
-    showError("err-end", "End date must be after start date.");
-    markField("endDate", true);
-    valid = false;
-  } else {
-    clearError("err-end");
-    markField("endDate", false);
-  }
+    if (!isValidDate(start)) {
+      showError("err-start", "Please select a valid start date.");
+      markField("startDate", true);
+      valid = false;
+    } else {
+      clearError("err-start");
+      markField("startDate", false);
+    }
 
-  if (!valid) return false;
+    if (!isValidDate(end) || dateToNum(end) <= dateToNum(start)) {
+      showError("err-end", "End date must be after start date.");
+      markField("endDate", true);
+      valid = false;
+    } else {
+      clearError("err-end");
+      markField("endDate", false);
+    }
 
-  return true;
-}
-
-  // Live clear errors on input
-  document.getElementById("companyName").addEventListener("change", updateSupervisorByCompany);
-  document.getElementById("startDate").addEventListener("input",  () => { clearError("err-start");   markField("startDate", false); });
-  document.getElementById("endDate").addEventListener("input",    () => { clearError("err-end");     markField("endDate", false); });  document.querySelector("form").addEventListener("submit", function (e) {
     const industry = document.getElementById("industry");
     const other = document.getElementById("industryOther");
 
     if (industry.value === "Other" && other.value.trim() === "") {
-      e.preventDefault();
       alert("Please specify the industry.");
       other.focus();
+      valid = false;
     }
+
+    return valid;
+  }
+
+  // Live clear errors on input
+  document.getElementById("companyName").addEventListener("change", updateSupervisorByCompany);
+
+  document.getElementById("startDate").addEventListener("input", () => {
+    clearError("err-start");
+    markField("startDate", false);
+  });
+
+  document.getElementById("endDate").addEventListener("input", () => {
+    clearError("err-end");
+    markField("endDate", false);
   });
 
   document.getElementById("industry").addEventListener("change", function () {

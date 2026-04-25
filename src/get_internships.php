@@ -45,8 +45,12 @@ $sql = "
         END AS status
 
     FROM internships i
+
     JOIN students s
         ON i.student_id = s.student_id
+
+    JOIN users stu
+        ON stu.student_id = s.student_id
 
     LEFT JOIN users lec
         ON i.lecturer_id = lec.user_id
@@ -62,7 +66,8 @@ $sql = "
         ON i.internship_id = sa.internship_id
        AND sa.assessor_type = 'supervisor'
 
-    WHERE (s.student_id LIKE ? OR s.full_name LIKE ?)
+    WHERE stu.status = 'active'
+      AND (s.student_id LIKE ? OR s.full_name LIKE ?)
 ";
 
 $params = [$search, $search];
@@ -108,10 +113,11 @@ $sql .= " ORDER BY s.student_id ASC";
 $stmt = $conn->prepare($sql);
 
 if (!$stmt) {
-    die(json_encode([
+    echo json_encode([
         'error' => 'Prepare failed',
         'details' => $conn->error
-    ]));
+    ]);
+    exit;
 }
 
 $stmt->bind_param($types, ...$params);

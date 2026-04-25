@@ -209,7 +209,7 @@ requireRole('admin');
   label { font-size: 12.5px; font-weight: 500; color: var(--muted); letter-spacing: 0.02em; }
   .required-star { color: var(--danger); margin-left: 3px; }
 
-  input[type=text], select, textarea {
+  input[type=text], input[type=date], select, textarea {
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -221,8 +221,26 @@ requireRole('admin');
     transition: border-color 0.15s, box-shadow 0.15s;
     width: 100%;
   }
-  input[type=text]::placeholder, textarea::placeholder { color: var(--muted); }
-  input[type=text]:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,0.12); }
+
+  input[type=text]::placeholder,
+  input[type=date]::placeholder,
+  textarea::placeholder {
+    color: var(--muted);
+  }
+
+  input[type=text]:focus,
+  input[type=date]:focus,
+  select:focus,
+  textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(79,142,247,0.12);
+  }
+  
+  input[type=date]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+  }
+  
   input.error, select.error, textarea.error { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(224,85,85,0.1); }
   input.changed, select.changed, textarea.changed { border-color: var(--warning); }
 
@@ -412,13 +430,13 @@ requireRole('admin');
 
         <div class="field">
           <label>Start Date <span class="required-star">*</span></label>
-          <input type="text" id="startDate" value="" maxlength="10" oninput="formatDate(this); markChanged(this);">
-          <div class="err-msg" id="err-start">Please enter a valid start date (DD/MM/YYYY).</div>
+          <input type="date" id="startDate" value="" oninput="markChanged(this);">
+          <div class="err-msg" id="err-start">Please enter a valid start date.</div>
         </div>
 
         <div class="field">
           <label>End Date <span class="required-star">*</span></label>
-          <input type="text" id="endDate" value="" maxlength="10" oninput="formatDate(this); markChanged(this);">
+          <input type="date" id="endDate" value="" oninput="markChanged(this);">
           <div class="err-msg" id="err-end">End date must be after start date.</div>
         </div>
 
@@ -723,25 +741,11 @@ requireRole('admin');
   }
 
   function isValidDate(str) {
-    const parts = str.split("/");
-    if (parts.length !== 3) return false;
-    const [d, m, y] = parts.map(Number);
-    if (!d || !m || !y || y < 2020 || y > 2035) return false;
-    if (m < 1 || m > 12 || d < 1 || d > 31) return false;
-    const dt = new Date(y, m - 1, d);
-    return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+    return str && !isNaN(new Date(str).getTime());
   }
 
   function dateToNum(str) {
-    const [d, m, y] = str.split("/").map(Number);
-    return y * 10000 + m * 100 + d;
-  }
-
-  function formatDate(input) {
-    let v = input.value.replace(/\D/g, "");
-    if (v.length >= 3 && v.length <= 4) v = v.slice(0,2) + "/" + v.slice(2);
-    else if (v.length >= 5) v = v.slice(0,2) + "/" + v.slice(2,4) + "/" + v.slice(4,8);
-    input.value = v;
+    return Number(str.replaceAll("-", ""));
   }
 
   function showError(id, msg) {
@@ -776,7 +780,8 @@ requireRole('admin');
     const company = document.getElementById("companyName").value.trim();
     const industry = document.getElementById("industry").value;
     const start = document.getElementById("startDate").value.trim();
-    const end = document.getElementById("endDate").value.trim();
+    const end = document.getElementById("endDate").value;
+
     const supervisorId = document.getElementById("supervisorId").value;
 
     if (selectedStatus !== "unassigned" && !company) {

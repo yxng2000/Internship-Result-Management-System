@@ -33,6 +33,41 @@ $my_total = array_sum([
 
 $conn = getConnection();
 
+// Check internship end date before allowing assessment
+$check = $conn->prepare("
+    SELECT end_date, status 
+    FROM internships 
+    WHERE internship_id = ?
+");
+
+if (!$check) {
+    echo json_encode(['success' => false, 'errors' => ['SQL Prepare Check Error: ' . $conn->error]]);
+    exit;
+}
+
+$check->bind_param('i', $internship_id);
+$check->execute();
+$result = $check->get_result();
+$row = $result->fetch_assoc();
+$check->close();
+
+if (!$row) {
+    echo json_encode(['success' => false, 'errors' => ['Internship record not found.']]);
+    exit;
+}
+
+$today = date('Y-m-d');
+
+if (empty($row['end_date'])) {
+    echo json_encode(['success' => false, 'errors' => ['Internship end date is missing. Cannot assess.']]);
+    exit;
+}
+
+if ($row['end_date'] > $today) {
+    echo json_encode(['success' => false, 'errors' => ['Internship has not ended yet. Cannot assess.']]);
+    exit;
+}
+
 // 1. Delete the old score for this specific assessor role
 $del = $conn->prepare("DELETE FROM assessments WHERE internship_id = ? AND assessor_type = ?");
 if (!$del) {
@@ -82,10 +117,16 @@ $bothCheck->execute();
 $count = $bothCheck->get_result()->fetch_assoc()['c'];
 $bothCheck->close();
 
-if ($count == 2) {
-    $conn->query("UPDATE internships SET status = 'completed' WHERE internship_id = $internship_id");
+if ($count >= 2) {
+    $upd = $conn->prepare("UPDATE internships SET status = 'completed' WHERE internship_id = ?");
+    $upd->bind_param('i', $internship_id);
+    $upd->execute();
+    $upd->close();
 } else {
-    $conn->query("UPDATE internships SET status = 'pending' WHERE internship_id = $internship_id AND status = 'unassigned'");
+    $upd = $conn->prepare("UPDATE internships SET status = 'pending' WHERE internship_id = ? AND status = 'unassigned'");
+    $upd->bind_param('i', $internship_id);
+    $upd->execute();
+    $upd->close();
 }
 
 $conn->close();

@@ -275,6 +275,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_user'])) {
                             throw new Exception('Student record is missing student ID.');
                         }
 
+                        $oldStatus = $targetUser['status'];
+                        $newStatus = $status;
+
+                        $stmt = $conn->prepare("
+                            SELECT internship_id, status
+                            FROM internships
+                            WHERE student_id = ?
+                            LIMIT 1
+                        ");
+                        $stmt->bind_param("s", $student_id);
+                        $stmt->execute();
+                        $internship = $stmt->get_result()->fetch_assoc();
+                        $stmt->close();
+
+                        if ($oldStatus === 'active' && $newStatus === 'inactive') {
+                            if ($internship && $internship['status'] === 'completed') {
+                                throw new Exception('Completed student cannot be deactivated.');
+                            }
+
+                            if ($internship && $internship['status'] === 'pending') {
+                                $internship_id = (int)$internship['internship_id'];
+
+                                $stmt = $conn->prepare("DELETE FROM assessments WHERE internship_id = ?");
+                                $stmt->bind_param("i", $internship_id);
+                                $stmt->execute();
+                                $stmt->close();
+
+                                $stmt = $conn->prepare("
+                                    UPDATE internships
+                                    SET lecturer_id = NULL,
+                                        supervisor_id = NULL,
+                                        company_name = NULL,
+                                        industry = NULL,
+                                        start_date = NULL,
+                                        end_date = NULL,
+                                        notes = '',
+                                        status = 'unassigned'
+                                    WHERE internship_id = ?
+                                ");
+                                $stmt->bind_param("i", $internship_id);
+                                $stmt->execute();
+                                $stmt->close();
+                            }
+                        }
+
+                        if ($oldStatus === 'inactive' && $newStatus === 'active') {
+                            if ($internship) {
+                                $stmt = $conn->prepare("
+                                    UPDATE internships
+                                    SET lecturer_id = NULL,
+                                        supervisor_id = NULL,
+                                        company_name = NULL,
+                                        industry = NULL,
+                                        start_date = NULL,
+                                        end_date = NULL,
+                                        notes = '',
+                                        status = 'unassigned'
+                                    WHERE student_id = ?
+                                ");
+                                $stmt->bind_param("s", $student_id);
+                                $stmt->execute();
+                                $stmt->close();
+                            } else {
+                                $stmt = $conn->prepare("
+                                    INSERT INTO internships
+                                    (student_id, lecturer_id, supervisor_id, company_name, industry, start_date, end_date, status, notes)
+                                    VALUES (?, NULL, NULL, NULL, NULL, NULL, NULL, 'unassigned', '')
+                                ");
+                                $stmt->bind_param("s", $student_id);
+                                $stmt->execute();
+                                $stmt->close();
+                            }
+                        }
+
                         if ($password !== '') {
                             $hashedPassword = md5($password);
                             $stmt = $conn->prepare("
@@ -1585,6 +1659,20 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
   }
 
   document.getElementById('editUserForm').addEventListener('submit', function (e) {
+      const role = document.getElementById("edit_role").value.toLowerCase();
+      const status = document.getElementById("edit_status").value;
+
+      if (role === "student" && status === "inactive") {
+        const ok = confirm(
+          "Warning: If this student has a pending internship record, the record and any submitted assessment will be cleared. Continue?"
+        );
+
+        if (!ok) {
+          e.preventDefault();
+          return;
+        }
+      }
+
     const passwordBox = document.getElementById('passwordFields');
     const password = document.getElementById('edit_password').value.trim();
     const confirmPassword = document.getElementById('edit_confirm_password').value.trim();

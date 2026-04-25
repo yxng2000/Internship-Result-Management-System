@@ -659,7 +659,11 @@ $avatar = get_initials($full_name);
       const result = await resp.json();
 
       if (!result.success) {
-        alert((result.errors || ['Submission failed.']).join('\n'));
+        alert(
+          (result.errors || [result.error] || ['Submission failed.'])
+            .filter(Boolean)
+            .join('\n')
+        );
         btn.disabled = false;
         btn.innerHTML = `<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Submit Result`;
         return;

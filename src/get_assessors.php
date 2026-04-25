@@ -17,6 +17,7 @@ $sql = "
         u.user_id,
         u.full_name,
         u.programme,
+        u.status,
         COUNT(i.internship_id) AS student_count
     FROM users u
     LEFT JOIN internships i ON u.user_id = i.lecturer_id

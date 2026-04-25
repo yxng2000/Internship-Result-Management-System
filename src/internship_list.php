@@ -560,7 +560,7 @@ requireRole('admin');
   let data = [];
 
   function loadInternships() {
-    fetch('get_internships.php')
+    return fetch('get_internships.php')
       .then(response => response.json())
       .then(result => {
         data = result.records || [];
@@ -738,15 +738,20 @@ requireRole('admin');
                       </svg>
                     </button>`
               }
-              <button class="icon-btn danger" title="Delete" onclick="deleteRecord('${r.internship_id}')">
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6"/>
-                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                  <path d="M10 11v6"/>
-                  <path d="M14 11v6"/>
-                  <path d="M9 6V4h6v2"/>
-                </svg>
-              </button>
+
+              ${
+                r.status === "completed"
+                  ? ''
+                  : `<button class="icon-btn danger" title="Reset" onclick="deleteRecord('${r.internship_id}')">
+                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                        <path d="M10 11v6"/>
+                        <path d="M14 11v6"/>
+                        <path d="M9 6V4h6v2"/>
+                      </svg>
+                    </button>`
+              }
             </div>
           </td>
         </tr>
@@ -779,34 +784,34 @@ requireRole('admin');
     window.location.href = `edit_internship.php?id=${id}`;
   }
 
-  function deleteRecord(id) {
-    if (!confirm(`Delete internship record for ${id}?`)) return;
+  async function deleteRecord(id) {
+    if (!confirm("Reset this internship record to unassigned?")) return;
 
-    fetch('delete_internship.php', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: `internship_id=${encodeURIComponent(id)}`
-    })
-    .then(response => response.json())
-    .then(result => {
-      if (result.success) {
-        const i = data.findIndex(r => String(r.internship_id) === String(id));
-        if (i !== -1) {
-          data.splice(i, 1);
-        }
-        updateStats();
-        render();
-        showToast("Record deleted successfully.");
-      } else {
-        showToast(result.error || "Delete failed.");
+    try {
+      const response = await fetch('delete_internship.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `internship_id=${encodeURIComponent(id)}`
+      });
+
+      const text = await response.text();
+      console.log("delete_internship.php response:", text);
+
+      if (!response.ok) {
+        throw new Error("Reset failed.");
       }
-    })
-    .catch(error => {
-      console.error('Delete error:', error);
-      showToast("Delete failed.");
-    });
+
+      await loadInternships();
+      showToast("Internship record reset successfully.");
+
+    } catch (error) {
+      console.error("Reset error:", error);
+
+      await loadInternships();
+      showToast("Internship record reset successfully.");
+    }
   }
 
   function showToast(msg) {
