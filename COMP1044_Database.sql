@@ -125,7 +125,7 @@ INSERT INTO users (username, password, full_name, role, programme, company_name,
 
 -- Computer Science lecturers (2)
 ('lec_1001', MD5('lina1234'),   'Dr. Lina',         'lecturer',   'Computer Science', NULL,              'lina@university.edu.my', NULL, 'active'),
-('lec_1002', MD5('raj12345'),   'Prof. Raj',        'lecturer',   'Computer Science', NULL,              'raj@university.edu.my', NULL, 'active'),
+('lec_1002', MD5('raj12345'),   'Prof. Raj',        'lecturer',   'Computer Science', NULL,              'raj@university.edu.my', NULL, 'inactive'),
 
 -- Arts and Design lecturers (1)
 ('lec_1003', MD5('amin1234'),   'Dr. Amin Hassan',  'lecturer',   'Arts and Design',  NULL,              'amin@university.edu.my', NULL, 'active'),
@@ -155,15 +155,56 @@ INSERT INTO users (username, password, full_name, role, programme, company_name,
 ('S0030', MD5('stud0030'), 'Muhammad Faris',   'student', 'Engineering',      NULL, 'faris@student.irms.com',   'S0030', 'active');
 
 -- Internships
--- 6 unassigned, 4 pending
+-- 1 completed record, 4 pending records, 5 unassigned records.
 INSERT INTO internships (student_id, lecturer_id, supervisor_id, company_name, industry, start_date, end_date, status, notes) VALUES
-('S0021', 2,  9,  'Intel Penang', 'Technology / IT',   '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0022', 7, 10,  'Maybank',      'Finance / Banking', '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0023', 5,  9,  'Intel Penang', 'Engineering',       '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0024', 3,  9,  'Intel Penang', 'Technology / IT',   '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0025', NULL, NULL, NULL,       NULL,                NULL,         NULL,         'unassigned', ''),
+-- Completed: both lecturer and supervisor have submitted assessment rows.
+('S0021', 2,  9,  'Intel Penang', 'Technology / IT',   '2025-11-01', '2026-03-31', 'completed',  'Completed demo record. Both assessor results are available.'),
+
+-- Pending with lecturer score only: supervisor can submit during demo to turn it completed.
+('S0022', 7, 10,  'Maybank',      'Finance / Banking', '2025-11-01', '2026-03-31', 'pending',    'Pending demo record. Lecturer has submitted; supervisor result is still missing.'),
+
+-- Pending with no assessment yet: first result submission keeps it pending.
+('S0023', 5,  9,  'Intel Penang', 'Engineering',       '2025-11-01', '2026-03-31', 'pending',    'Pending demo record. No assessment has been submitted yet.'),
+
+-- Pending with supervisor score only: lecturer can submit during demo to turn it completed.
+('S0024', 2,  9,  'Intel Penang', 'Technology / IT',   '2025-11-01', '2026-03-31', 'pending',    'Pending demo record. Supervisor has submitted; lecturer result is still missing.'),
+
+-- Future pending: shows the not-ended warning in result entry and prevents assessment.
+('S0025', 4, 10,  'Maybank',      'Education',         '2026-06-01', '2026-10-31', 'pending',    'Future internship demo record. Assessment should be blocked until the end date passes.'),
+
+-- Unassigned: available for Assign Student flow.
 ('S0026', NULL, NULL, NULL,       NULL,                NULL,         NULL,         'unassigned', ''),
 ('S0027', NULL, NULL, NULL,       NULL,                NULL,         NULL,         'unassigned', ''),
 ('S0028', NULL, NULL, NULL,       NULL,                NULL,         NULL,         'unassigned', ''),
 ('S0029', NULL, NULL, NULL,       NULL,                NULL,         NULL,         'unassigned', ''),
 ('S0030', NULL, NULL, NULL,       NULL,                NULL,         NULL,         'unassigned', '');
+
+-- Assessment Results
+-- Totals equal the sum of the eight criteria columns.
+-- S0021 has both scores, S0022 has lecturer-only score, S0024 has supervisor-only score.
+INSERT INTO assessments (
+    internship_id,
+    assessor_type,
+    undertaking_tasks,
+    health_safety,
+    theoretical_knowledge,
+    report_presentation,
+    clarity_language,
+    lifelong_learning,
+    project_management,
+    time_management,
+    total_score,
+    comments
+) VALUES
+(1, 'lecturer',   8.50, 9.00, 8.50, 13.00, 9.00, 14.00, 13.00, 13.00, 88.00, 'Strong technical work and consistent progress throughout the internship.'),
+(1, 'supervisor', 9.00, 9.50, 9.00, 14.00, 9.00, 14.00, 13.50, 14.00, 92.00, 'Excellent workplace attitude, communication, and task ownership.'),
+(2, 'lecturer',   8.00, 8.00, 8.00, 12.00, 8.00, 12.00, 12.00, 13.00, 81.00, 'Good academic reflection. Waiting for supervisor evaluation to finalize the result.'),
+(4, 'supervisor', 8.00, 8.00, 7.00, 12.00, 8.00, 12.00, 11.00, 12.00, 78.00, 'Workplace performance is satisfactory. Lecturer evaluation is still pending.');
+
+-- Activity Logs
+-- Seeded so the Admin Dashboard can immediately demonstrate recent activity querying.
+INSERT INTO activity_logs (action_type, target_type, target_id, title, description, link_url, created_at) VALUES
+('assign', 'internship', 2, 'Student assigned for internship', 'Nurul Aina was assigned to Maybank. Lecturer: Prof. Brenda Lim, Supervisor: Ms. Sarah Lim.', 'edit_internship.php?id=2', '2026-04-20 09:15:00'),
+('edit',   'internship', 4, 'Internship record updated', 'Siti Hajar internship details were updated. Company: Intel Penang. Status: pending.', 'edit_internship.php?id=4', '2026-04-21 11:30:00'),
+('add',    'user',       0, 'Demo-ready data prepared', 'The database was prepared with completed, pending, and unassigned records for system testing.', 'user_management.php', '2026-04-22 10:00:00'),
+('edit',   'result',     1, 'Assessment result available', 'Ahmad Zulkifli now has both lecturer and supervisor assessment records.', 'view_results.php', '2026-04-23 14:45:00');
