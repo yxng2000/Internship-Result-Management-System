@@ -311,17 +311,19 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
   .main {
     margin-left: 220px;
     flex: 1;
-    width: calc(100% - 220px);
+    width: calc(100vw - 220px);
+    max-width: none;
     min-height: 100vh;
-    padding: 34px 46px 56px;
+    padding: 34px 36px 56px;
   }
 
   .page-header,
   .stats-row,
   .content-grid {
-    width: min(1320px, 100%);
-    margin-left: auto;
-    margin-right: auto;
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .page-header {
@@ -378,7 +380,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
 
   .content-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+    grid-template-columns: minmax(0, 1.15fr) minmax(420px, 0.85fr);
     gap: 20px;
     align-items: stretch;
   }
