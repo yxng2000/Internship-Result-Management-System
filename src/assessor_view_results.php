@@ -334,12 +334,12 @@ $avatar = get_initials($full_name);
   let data = [];
 
   const CRITERIA_META = [
-    { key: 'undertaking_tasks',     label: 'Undertaking Tasks',     max: 10, weight: '10%' },
-    { key: 'health_safety',         label: 'Health & Safety',       max: 10, weight: '10%' },
-    { key: 'theoretical_knowledge', label: 'Theoretical Knowledge', max: 10, weight: '10%' },
-    { key: 'report_presentation',   label: 'Report & Presentation', max: 15, weight: '15%' },
-    { key: 'clarity_language',      label: 'Clarity & Language',    max: 10, weight: '10%' },
-    { key: 'lifelong_learning',     label: 'Lifelong Learning',     max: 15, weight: '15%' },
+    { key: 'undertaking_tasks',     label: 'Undertaking Tasks / Projects',     max: 10, weight: '10%' },
+    { key: 'health_safety',         label: 'Health and Safety Requirements at the Workplace', max: 10, weight: '10%' },
+    { key: 'theoretical_knowledge', label: 'Connectivity and Use of Theoretical Knowledge', max: 10, weight: '10%' },
+    { key: 'report_presentation',   label: 'Presentation of the Report as a Written Document', max: 15, weight: '15%' },
+    { key: 'clarity_language',      label: 'Clarity of Language and Illustration',    max: 10, weight: '10%' },
+    { key: 'lifelong_learning',     label: 'Lifelong Learning Activities',     max: 15, weight: '15%' },
     { key: 'project_management',    label: 'Project Management',    max: 15, weight: '15%' },
     { key: 'time_management',       label: 'Time Management',       max: 15, weight: '15%' },
   ];

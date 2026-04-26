@@ -245,12 +245,12 @@ let data = [];
 // Lecturer keys: l_undertaking_tasks, l_health_safety, etc.
 // Supervisor keys: s_undertaking_tasks, s_health_safety, etc.
 const CRITERIA = [
-  { label:'Undertaking Tasks',     max:10,  lKey:'l_undertaking_tasks',     sKey:'s_undertaking_tasks'     },
-  { label:'Health & Safety',       max:10,  lKey:'l_health_safety',         sKey:'s_health_safety'         },
-  { label:'Theoretical Knowledge', max:10,  lKey:'l_theoretical_knowledge', sKey:'s_theoretical_knowledge' },
-  { label:'Report & Presentation', max:15,  lKey:'l_report_presentation',   sKey:'s_report_presentation'   },
-  { label:'Clarity & Language',    max:10,  lKey:'l_clarity_language',      sKey:'s_clarity_language'      },
-  { label:'Lifelong Learning',     max:15,  lKey:'l_lifelong_learning',     sKey:'s_lifelong_learning'     },
+  { label:'Undertaking Tasks / Projects',     max:10,  lKey:'l_undertaking_tasks',     sKey:'s_undertaking_tasks'     },
+  { label:'Health and Safety Requirements at the Workplace',       max:10,  lKey:'l_health_safety',         sKey:'s_health_safety'         },
+  { label:'Connectivity and Use of Theoretical Knowledge', max:10,  lKey:'l_theoretical_knowledge', sKey:'s_theoretical_knowledge' },
+  { label:'Presentation of the Report as a Written Document', max:15,  lKey:'l_report_presentation',   sKey:'s_report_presentation'   },
+  { label:'Clarity of Language and Illustration',    max:10,  lKey:'l_clarity_language',      sKey:'s_clarity_language'      },
+  { label:'Lifelong Learning Activities',     max:15,  lKey:'l_lifelong_learning',     sKey:'s_lifelong_learning'     },
   { label:'Project Management',    max:15,  lKey:'l_project_management',    sKey:'s_project_management'    },
   { label:'Time Management',       max:15,  lKey:'l_time_management',       sKey:'s_time_management'       },
 ];

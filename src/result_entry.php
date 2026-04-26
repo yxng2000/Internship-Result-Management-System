@@ -262,7 +262,7 @@ $avatar = get_initials($full_name);
 
       <div class="criteria-row">
         <div class="criteria-info">
-          <div class="criteria-name">Undertaking Tasks</div>
+          <div class="criteria-name">Undertaking Tasks / Projects</div>
           <div class="criteria-desc">Ability to perform assigned duties and tasks effectively</div>
           <span class="criteria-weight">10%</span>
         </div>
@@ -278,7 +278,7 @@ $avatar = get_initials($full_name);
 
       <div class="criteria-row">
         <div class="criteria-info">
-          <div class="criteria-name">Health &amp; Safety</div>
+          <div class="criteria-name">Health and Safety Requirements at the Workplace</div>
           <div class="criteria-desc">Adherence to workplace health and safety practices</div>
           <span class="criteria-weight">10%</span>
         </div>
@@ -294,7 +294,7 @@ $avatar = get_initials($full_name);
 
       <div class="criteria-row">
         <div class="criteria-info">
-          <div class="criteria-name">Theoretical Knowledge</div>
+          <div class="criteria-name">Connectivity and Use of Theoretical Knowledge</div>
           <div class="criteria-desc">Application of academic knowledge in the workplace</div>
           <span class="criteria-weight">10%</span>
         </div>
@@ -310,7 +310,7 @@ $avatar = get_initials($full_name);
 
       <div class="criteria-row">
         <div class="criteria-info">
-          <div class="criteria-name">Report &amp; Presentation</div>
+          <div class="criteria-name">Presentation of the Report as a Written Document</div>
           <div class="criteria-desc">Quality of internship report and presentation skills</div>
           <span class="criteria-weight">15%</span>
         </div>
@@ -326,7 +326,7 @@ $avatar = get_initials($full_name);
 
       <div class="criteria-row">
         <div class="criteria-info">
-          <div class="criteria-name">Clarity &amp; Language</div>
+          <div class="criteria-name">Clarity of Language and Illustration</div>
           <div class="criteria-desc">Communication clarity, language use, and articulation</div>
           <span class="criteria-weight">10%</span>
         </div>
@@ -342,7 +342,7 @@ $avatar = get_initials($full_name);
 
       <div class="criteria-row">
         <div class="criteria-info">
-          <div class="criteria-name">Lifelong Learning</div>
+          <div class="criteria-name">Lifelong Learning Activities</div>
           <div class="criteria-desc">Self-improvement initiative and continuous learning attitude</div>
           <span class="criteria-weight">15%</span>
         </div>
