@@ -1,3 +1,32 @@
+<?php
+session_start();
+require_once 'auth.php';
+requireRole('admin');
+require_once 'config.php';
+
+$companySupervisorMap = [];
+$conn = getConnection();
+$result = $conn->query("
+    SELECT user_id, full_name, company_name
+    FROM users
+    WHERE role = 'supervisor'
+      AND status = 'active'
+      AND company_name IS NOT NULL
+      AND company_name <> ''
+    ORDER BY company_name ASC
+");
+
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $companySupervisorMap[$row['company_name']] = [
+            'id' => (int)$row['user_id'],
+            'name' => $row['full_name']
+        ];
+    }
+}
+$conn->close();
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -45,17 +74,111 @@
     position: fixed;
     top: 0; left: 0; bottom: 0;
   }
-  .logo { font-size: 15px; font-weight: 700; letter-spacing: 0.06em; color: var(--accent); padding: 0 20px 28px; border-bottom: 1px solid var(--border); margin-bottom: 16px; text-transform: uppercase; }
+
+  .logo {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    padding: 0 20px 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
   .logo span { color: var(--text); }
-  .nav-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); padding: 0 20px 8px; }
-  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; font-size: 13.5px; font-weight: 500; color: var(--muted); cursor: pointer; border-left: 3px solid transparent; transition: all 0.15s; text-decoration: none; }
+
+  .nav-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 20px 8px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+
   .nav-item:hover { color: var(--text); background: var(--surface2); }
   .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(79,142,247,0.07); }
-  .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
-  .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+
+  .nav-item svg { flex-shrink: 0; }
+
+.sidebar-footer {
+    margin-top: auto;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .sidebar-user {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .user-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(232, 234, 240, 0.55);
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  .logout-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: transparent;
+    color: #ff6b6b;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .logout-btn:hover {
+    background: rgba(224, 85, 85, 0.08);
+    border-color: #e05555;
+    color: #ff7b7b;
+  }
 
   /* ── Main ── */
-  .main { margin-left: 220px; flex: 1; padding: 32px 36px; max-width: 860px; }
+  .main { margin-left: 220px; flex: 1; padding: 32px 36px; max-width: 980px; }
 
   .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); margin-bottom: 20px; }
   .breadcrumb a { color: var(--muted); text-decoration: none; transition: color 0.15s; }
@@ -106,9 +229,21 @@
     letter-spacing: 0.02em;
   }
 
+  .helper-text {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+    padding-left: 2px;
+  }
+
+  .helper-text span {
+    color: var(--text);
+    font-weight: 500;
+  }
+
   .required-star { color: var(--danger); margin-left: 3px; }
 
-  input[type=text], input[type=email], select, textarea {
+  input[type=text], input[type=email], input[type=date], select, textarea {
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -121,12 +256,12 @@
     width: 100%;
   }
 
-  input[type=text]::placeholder, textarea::placeholder { color: var(--muted); }
-
-  input[type=text]:focus, select:focus, textarea:focus {
+  input[type=text]:focus, input[type=date]:focus, select:focus, textarea:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(79,142,247,0.12);
   }
+
+  input[type=text]::placeholder, textarea::placeholder { color: var(--muted); }
 
   input.error, select.error, textarea.error {
     border-color: var(--danger);
@@ -177,8 +312,20 @@
     font-size: 11px;
     font-weight: 600;
   }
-  .badge-unassigned { background: rgba(107,112,128,0.15); color: var(--muted); }
-  .badge-assigned { background: rgba(224,85,85,0.12); color: var(--danger); }
+  .badge-unassigned {
+    background: rgba(107,112,128,0.15);
+    color: var(--muted);
+  }
+
+  .badge-pending {
+    background: rgba(240,160,48,0.12);
+    color: var(--warning);
+  }
+
+  .badge-completed {
+    background: rgba(52,201,123,0.12);
+    color: var(--success);
+  }
 
   /* Assessor card grid */
   .assessor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 4px; }
@@ -195,6 +342,28 @@
   .assessor-card.selected { border-color: var(--accent); background: rgba(79,142,247,0.1); }
   .assessor-card input[type=radio] { display: none; }
   .assessor-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .assessor-card.invalid {
+    opacity: 0.45;
+    cursor: not-allowed;
+    border-color: rgba(224,85,85,0.35);
+  }
+
+  .assessor-card.invalid:hover {
+    border-color: rgba(224,85,85,0.35);
+    background: var(--surface2);
+  }
+
+  .invalid-badge {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 3px 8px;
+    border-radius: 99px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #ff8a8a;
+    background: rgba(224,85,85,0.12);
+  }
+
   .assessor-dept { font-size: 11px; color: var(--muted); }
   .assessor-load { font-size: 11px; color: var(--muted); margin-top: 6px; }
   .load-bar-wrap { height: 3px; background: var(--border); border-radius: 99px; margin-top: 4px; }
@@ -213,12 +382,31 @@
     border-top: 1px solid var(--border);
   }
 
-  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 20px; border-radius: var(--radius); font-family: var(--font); font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; text-decoration: none; }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover { background: #3d7ef5; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+
+  .btn-primary {
+    background: rgba(79,142,247,0.12);
+    color: var(--accent);
+    border-color: rgba(79,142,247,0.25);
+  }
+
+  .btn-primary:hover { background: rgba(79,142,247,0.18); }
   .btn-primary:active { transform: scale(0.98); }
-  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-  .btn-ghost:hover { color: var(--text); border-color: var(--text); }
+  .btn-ghost { background: var(--surface2); color: var(--text); border-color: var(--border); }
+  .btn-ghost:hover { background: var(--border); }
 
   /* Success overlay */
   .success-overlay {
@@ -248,25 +436,44 @@
 <nav class="sidebar">
   <div class="logo">IRM<span>sys</span></div>
   <div class="nav-label">Admin Panel</div>
-  <a class="nav-item" href="#">
+  <a class="nav-item" href="admin_dashboard.php">
     <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
     Dashboard
   </a>
-  <a class="nav-item" href="#">
+  <a class="nav-item" href="user_management.php">
     <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
     User Management
   </a>
-  <a class="nav-item active" href="internship_list.html">
+  <a class="nav-item active" href="internship_list.php">
     <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
     Internship Mgmt
   </a>
-  <a class="nav-item" href="#">
+  <a class="nav-item" href="view_results.php">
     <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     Results
   </a>
   <div class="sidebar-footer">
-    <div class="avatar">AD</div>
-    Admin User
+    <div class="sidebar-user">
+      <div class="avatar">
+        <?php
+          $displayName = $_SESSION['full_name'] ?? 'Admin User';
+          $parts = preg_split('/\s+/', trim($displayName));
+          $initials = '';
+          foreach ($parts as $part) {
+            if ($part !== '') {
+              $initials .= strtoupper($part[0]);
+            }
+            if (strlen($initials) >= 2) break;
+          }
+          echo htmlspecialchars($initials ?: 'AD');
+        ?>
+      </div>
+      <div class="user-name">
+        <?php echo htmlspecialchars($_SESSION['full_name'] ?? 'Admin User'); ?>
+      </div>
+    </div>
+
+    <a href="logout.php" class="logout-btn">Logout</a>
   </div>
 </nav>
 
@@ -274,14 +481,14 @@
 <main class="main">
 
   <div class="breadcrumb">
-    <a href="internship_list.html">Internship Management</a>
+    <a href="internship_list.php">Internship Management</a>
     <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
     <span>Assign Student</span>
   </div>
 
   <div class="page-header">
     <div class="page-title">Assign Student to Internship</div>
-    <div class="page-sub">Link a student to an assessor and record their internship company</div>
+    <div class="page-sub">Link a student to a lecturer and supervisor to record their internship company</div>
   </div>
 
   <!-- Form card -->
@@ -323,12 +530,12 @@
     <div class="form-section">
       <div class="section-label">Assessor Assignment</div>
       <label style="font-size:12.5px; font-weight:500; color:var(--muted); margin-bottom:8px; display:block;">
-        Select Assessor <span class="required-star">*</span>
+        Select Lecturer <span class="required-star">*</span>
       </label>
       <div class="assessor-grid" id="assessorGrid"></div>
       <div class="assessor-err" id="err-assessor">
         <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Please select an assessor.
+        Please select a lecturer.
       </div>
     </div>
 
@@ -338,42 +545,57 @@
       <div class="form-grid">
         <div class="field">
           <label>Company Name <span class="required-star">*</span></label>
-          <input type="text" id="companyName" name="company" placeholder="e.g. Petronas Digital Sdn Bhd">
+          <select id="companyName" name="company">
+            <option value="">— Select company —</option>
+            <option value="Maybank">Maybank</option>
+            <option value="Intel Penang">Intel Penang</option>
+          </select>
+
+          <div class="helper-text">
+            Supervisor: <span id="supervisorText">—</span>
+          </div>
+
+          <input type="hidden" id="supervisor" name="supervisor">
+
           <div class="err-msg" id="err-company">
-            <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
             Company name is required.
           </div>
         </div>
+
+        <!-- Row 1: Industry -->
         <div class="field">
           <label>Industry</label>
           <select id="industry" name="industry">
             <option value="">— Select industry —</option>
             <option>Technology / IT</option>
-            <option>Telecommunications</option>
+            <option>Engineering</option>
             <option>Finance / Banking</option>
-            <option>Oil & Gas</option>
             <option>Manufacturing</option>
             <option>Healthcare</option>
             <option>Education</option>
             <option>Other</option>
           </select>
+
+          <input type="text" id="industryOther" name="industry_other" placeholder="Specify industry" style="display:none;">
           <div class="err-msg"></div>
         </div>
+
         <div class="field">
           <label>Start Date <span class="required-star">*</span></label>
-          <input type="text" id="startDate" name="start_date" placeholder="DD/MM/YYYY" maxlength="10" oninput="formatDate(this)">
-          <div class="err-msg" id="err-start">
-            <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            Please enter a valid start date.
-          </div>
+          <input type="date" id="startDate" name="start_date">
+          <div class="err-msg" id="err-start">Please select a valid start date.</div>
         </div>
+
         <div class="field">
           <label>End Date <span class="required-star">*</span></label>
-          <input type="text" id="endDate" name="end_date" placeholder="DD/MM/YYYY" maxlength="10" oninput="formatDate(this)">
-          <div class="err-msg" id="err-end">
-            <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            End date must be after start date.
-          </div>
+          <input type="date" id="endDate" name="end_date">
+          <div class="err-msg" id="err-end">End date must be after start date.</div>
+        </div>
         </div>
         <div class="field full">
           <label>Additional Notes</label>
@@ -385,7 +607,7 @@
 
     <!-- Footer -->
     <div class="form-footer">
-      <a href="internship_list.html" class="btn btn-ghost">
+      <a href="internship_list.php" class="btn btn-ghost">
         <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         Cancel
       </a>
@@ -406,8 +628,8 @@
     <div class="success-title">Student Assigned Successfully</div>
     <div class="success-sub" id="successMsg">The student has been linked to their assessor and internship record saved.</div>
     <div class="success-actions">
-      <a href="assign_student.html" class="btn btn-ghost">Assign Another</a>
-      <a href="internship_list.html" class="btn btn-primary">Back to List</a>
+      <a href="assign_student.php" class="btn btn-ghost">Assign Another</a>
+      <a href="internship_list.php" class="btn btn-primary">Back to List</a>
     </div>
   </div>
 
@@ -416,6 +638,11 @@
 <script>
   let students = {};
   
+  const companySupervisorMap = <?= json_encode($companySupervisorMap, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+
+  const params = new URLSearchParams(window.location.search);
+  const preselectedStudentId = params.get("student_id");
+
   function getInitials(name) {
 	  return name
 		.split(" ")
@@ -426,116 +653,170 @@
 	}
 
 	function loadStudents() {
-	  fetch('get_students.php')
-		.then(response => response.json())
-		.then(rows => {
-		  const studentSelect = document.getElementById("studentId");
+    fetch('get_students.php')
+      .then(response => response.json())
+      .then(rows => {
+        const studentSelect = document.getElementById("studentId");
 
-		  studentSelect.innerHTML = `<option value="">— Select student —</option>`;
+        studentSelect.innerHTML = `<option value="">— Select student —</option>`;
 
-		  students = {};
+        students = {};
 
-		  rows.forEach(s => {
-			studentSelect.innerHTML += `
-			  <option value="${s.student_id}">
-				${s.student_id} — ${s.full_name}
-			  </option>
-			`;
+        rows.forEach(s => {
+          studentSelect.innerHTML += `
+            <option value="${s.student_id}">
+              ${s.student_id} — ${s.full_name}
+            </option>
+          `;
 
-			students[s.student_id] = {
-			  name: s.full_name,
-			  prog: s.programme,
-			  initials: getInitials(s.full_name)
-			};
-		  });
-		})
-		.catch(error => {
-		  console.error('Error loading students:', error);
-		});
-	}
+          students[s.student_id] = {
+            name: s.full_name,
+            prog: s.programme,
+            initials: getInitials(s.full_name),
+            status: s.status || "unassigned"
+          };
+        });
 
-  let selectedAssessor = "";
+        if (preselectedStudentId && students[preselectedStudentId]) {
+          document.getElementById("studentId").value = preselectedStudentId;
+          onStudentChange();
+        }
+      })
+      .catch(error => {
+        console.error('Error loading students:', error);
+      });
+  }
+
+  let selectedLecturer = "";
 
   function onStudentChange() {
     const id = document.getElementById("studentId").value;
     const preview = document.getElementById("studentPreview");
+    const badge = document.getElementById("previewBadge");
+
     clearError("err-student");
 
-    if (!id) { preview.classList.remove("visible"); document.getElementById("programme").value = ""; return; }
+    selectedLecturer = "";
+    document.getElementById("assessorGrid").innerHTML = "";
+    document.getElementById("err-assessor").classList.remove("visible");
+
+    if (!id) {
+      preview.classList.remove("visible");
+      document.getElementById("programme").value = "";
+      badge.textContent = "Unassigned";
+      badge.className = "preview-badge badge-unassigned";
+      document.getElementById("assessorGrid").innerHTML =
+        `<div style="color:var(--muted); font-size:13px;">Select a student first to view available assessors.</div>`;
+      return;
+    }
 
     const s = students[id];
     document.getElementById("previewAvatar").textContent = s.initials;
     document.getElementById("previewName").textContent = s.name;
     document.getElementById("previewSub").textContent = id + " · " + s.prog;
     document.getElementById("programme").value = s.prog;
+
+    badge.textContent = s.status.charAt(0).toUpperCase() + s.status.slice(1);
+    badge.className = "preview-badge";
+
+    if (s.status === "completed") {
+      badge.classList.add("badge-completed");
+    } else if (s.status === "pending") {
+      badge.classList.add("badge-pending");
+    } else {
+      badge.classList.add("badge-unassigned");
+    }
+
     preview.classList.add("visible");
+    loadAssessors(s.prog);
   }
 
-  function selectAssessor(card, name) {
-  document.querySelectorAll(".assessor-card").forEach(c => c.classList.remove("selected"));
-  card.classList.add("selected");
+  function selectAssessor(card, userId, status) {
+    if (status !== "active") {
+      showError("err-assessor", "This lecturer is inactive and cannot be assigned.");
+      return;
+    }
 
-  const radio = card.querySelector('input[type="radio"]');
-  if (radio) radio.checked = true;
+    document.querySelectorAll(".assessor-card").forEach(c => c.classList.remove("selected"));
+    card.classList.add("selected");
 
-  selectedAssessor = name;
-  clearError("err-assessor");
-}
-  
-  function loadAssessors() {
-  fetch('get_assessors.php')
-    .then(response => response.json())
-    .then(rows => {
-      const assessorGrid = document.getElementById("assessorGrid");
+    const radio = card.querySelector('input[type="radio"]');
+    if (radio) radio.checked = true;
 
-      assessorGrid.innerHTML = rows.map(a => {
-        const maxStudents = 10;
-        const count = Number(a.student_count) || 0;
-        const width = Math.min((count / maxStudents) * 100, 100);
-
-        return `
-		  <label class="assessor-card" onclick="selectAssessor(this, this.dataset.name)" data-name="${a.full_name}">
-			<input type="radio" name="assessor" value="${a.user_id}">
-			<div class="assessor-name">${a.full_name}</div>
-			<div class="assessor-dept">${a.department || ''}</div>
-			<div class="assessor-load">${count} / ${maxStudents} students</div>
-			<div class="load-bar-wrap">
-			  <div class="load-bar" style="width:${width}%"></div>
-			</div>
-		  </label>
-		`;
-      }).join("");
-    })
-    .catch(error => {
-      console.error('Error loading assessors:', error);
-    });
-}
-
-  function formatDate(input) {
-    let v = input.value.replace(/\D/g, "");
-    if (v.length >= 3 && v.length <= 4) v = v.slice(0,2) + "/" + v.slice(2);
-    else if (v.length >= 5) v = v.slice(0,2) + "/" + v.slice(2,4) + "/" + v.slice(4,8);
-    input.value = v;
+    selectedLecturer = userId;
+    clearError("err-assessor");
   }
 
-  function isValidDate(str) {
-    const parts = str.split("/");
-    if (parts.length !== 3) return false;
-    const [d, m, y] = parts.map(Number);
-    if (!d || !m || !y || y < 2020 || y > 2030) return false;
-    if (m < 1 || m > 12) return false;
-    if (d < 1 || d > 31) return false;
-    return true;
+  function loadAssessors(programme = "") {
+    const url = programme
+      ? `get_assessors.php?programme=${encodeURIComponent(programme)}`
+      : 'get_assessors.php';
+
+    fetch(url)
+      .then(response => response.json())
+      .then(rows => {
+        const assessorGrid = document.getElementById("assessorGrid");
+
+        if (!rows.length) {
+          assessorGrid.innerHTML = `<div style="color:var(--muted); font-size:13px;">No assessors available for this programme.</div>`;
+          return;
+        }
+
+        assessorGrid.innerHTML = rows.map(a => {
+          const maxStudents = 10;
+          const count = Number(a.student_count) || 0;
+          const width = Math.min((count / maxStudents) * 100, 100);
+
+         const status = (a.status || "inactive").toLowerCase();
+          const isInvalid = status !== "active";
+
+          return `
+            <label class="assessor-card ${isInvalid ? 'invalid' : ''}" onclick="selectAssessor(this, '${a.user_id}', '${status}')">
+              <input type="radio" name="lecturer" value="${a.user_id}" ${isInvalid ? 'disabled' : ''}>
+              <div class="assessor-name">${a.full_name}</div>
+              <div class="assessor-dept">${a.programme || ''}</div>
+              <div class="assessor-load">${count} / ${maxStudents} students</div>
+              ${isInvalid ? '<div class="invalid-badge">Inactive / Invalid</div>' : ''}
+              <div class="load-bar-wrap">
+                <div class="load-bar" style="width:${width}%"></div>
+              </div>
+            </label>
+          `;
+        }).join("");
+      })
+      .catch(error => {
+        console.error('Error loading assessors:', error);
+      });
   }
+
+  function updateSupervisorByCompany() {
+    const company = document.getElementById("companyName").value;
+    const supervisorText = document.getElementById("supervisorText");
+    const supervisorHidden = document.getElementById("supervisor");
+
+    if (companySupervisorMap[company]) {
+      supervisorText.textContent = companySupervisorMap[company].name;
+      supervisorHidden.value = companySupervisorMap[company].id;
+    } else {
+      supervisorText.textContent = "—";
+      supervisorHidden.value = "";
+    }
+
+    clearError("err-company");
+    markField("companyName", false);
+  }
+
+    function isValidDate(str) {
+      return str && !isNaN(new Date(str).getTime());
+    }
 
   function dateToNum(str) {
-    const [d, m, y] = str.split("/").map(Number);
-    return y * 10000 + m * 100 + d;
+    return Number(str.replaceAll("-", ""));
   }
 
   function showError(id, msg) {
     const el = document.getElementById(id);
-    if (msg) el.textContent = "⚠ " + msg;
+    if (msg) el.innerHTML = `⚠ ${msg}`;
     el.classList.add("visible");
   }
 
@@ -552,71 +833,97 @@
   }
 
   function submitForm() {
-  let valid = true;
+    let valid = true;
 
-  const sid = document.getElementById("studentId").value;
-  if (!sid) {
-    showError("err-student", "Please select a student.");
-    markField("studentId", true);
-    valid = false;
-  } else {
-    clearError("err-student");
-    markField("studentId", false);
+    const sid = document.getElementById("studentId").value;
+    if (!sid) {
+      showError("err-student", "Please select a student.");
+      markField("studentId", true);
+      valid = false;
+    } else {
+      clearError("err-student");
+      markField("studentId", false);
+    }
+
+    if (!selectedLecturer) {
+      showError("err-assessor", "Please select a lecturer.");
+      valid = false;
+    } else {
+      clearError("err-assessor");
+    }
+
+    const company = document.getElementById("companyName").value.trim();
+    if (!company) {
+      showError("err-company", "Company name is required.");
+      markField("companyName", true);
+      valid = false;
+    } else {
+      clearError("err-company");
+      markField("companyName", false);
+    }
+
+    const start = document.getElementById("startDate").value;
+    const end = document.getElementById("endDate").value;
+
+    if (!isValidDate(start)) {
+      showError("err-start", "Please select a valid start date.");
+      markField("startDate", true);
+      valid = false;
+    } else {
+      clearError("err-start");
+      markField("startDate", false);
+    }
+
+    if (!isValidDate(end) || dateToNum(end) <= dateToNum(start)) {
+      showError("err-end", "End date must be after start date.");
+      markField("endDate", true);
+      valid = false;
+    } else {
+      clearError("err-end");
+      markField("endDate", false);
+    }
+
+    const industry = document.getElementById("industry");
+    const other = document.getElementById("industryOther");
+
+    if (industry.value === "Other" && other.value.trim() === "") {
+      alert("Please specify the industry.");
+      other.focus();
+      valid = false;
+    }
+
+    return valid;
   }
-
-  if (!selectedAssessor) {
-    document.getElementById("err-assessor").classList.add("visible");
-    valid = false;
-  } else {
-    document.getElementById("err-assessor").classList.remove("visible");
-  }
-
-  const company = document.getElementById("companyName").value.trim();
-  if (!company) {
-    showError("err-company", "Company name is required.");
-    markField("companyName", true);
-    valid = false;
-  } else {
-    clearError("err-company");
-    markField("companyName", false);
-  }
-
-  const start = document.getElementById("startDate").value;
-  if (!isValidDate(start)) {
-    showError("err-start", "Please enter a valid start date (DD/MM/YYYY).");
-    markField("startDate", true);
-    valid = false;
-  } else {
-    clearError("err-start");
-    markField("startDate", false);
-  }
-
-  const end = document.getElementById("endDate").value;
-  if (!isValidDate(end)) {
-    showError("err-end", "Please enter a valid end date (DD/MM/YYYY).");
-    markField("endDate", true);
-    valid = false;
-  } else if (isValidDate(start) && dateToNum(end) <= dateToNum(start)) {
-    showError("err-end", "End date must be after start date.");
-    markField("endDate", true);
-    valid = false;
-  } else {
-    clearError("err-end");
-    markField("endDate", false);
-  }
-
-  if (!valid) return false;
-
-  return true;
-}
 
   // Live clear errors on input
-  document.getElementById("companyName").addEventListener("input", () => { clearError("err-company"); markField("companyName", false); });
-  document.getElementById("startDate").addEventListener("input",  () => { clearError("err-start");   markField("startDate", false); });
-  document.getElementById("endDate").addEventListener("input",    () => { clearError("err-end");     markField("endDate", false); });
-  
-  loadAssessors();
+  document.getElementById("companyName").addEventListener("change", updateSupervisorByCompany);
+
+  document.getElementById("startDate").addEventListener("input", () => {
+    clearError("err-start");
+    markField("startDate", false);
+  });
+
+  document.getElementById("endDate").addEventListener("input", () => {
+    clearError("err-end");
+    markField("endDate", false);
+  });
+
+  document.getElementById("industry").addEventListener("change", function () {
+    const other = document.getElementById("industryOther");
+
+    if (this.value === "Other") {
+      other.style.display = "block";
+    } else {
+      other.style.display = "none";
+      other.value = "";
+    }
+  });
+
+  document.getElementById("assessorGrid").innerHTML =
+    `<div style="color:var(--muted); font-size:13px;">Select a student first to view available assessors.</div>`;
+
   loadStudents();
+  updateSupervisorByCompany();
 </script>
 </body>
 </html>

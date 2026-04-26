@@ -1,53 +1,67 @@
 -- ============================================================
 --  COMP1044 — Internship Result Management System
+--  Updated for lecturer + supervisor separation
 --  Database: comp1044_irms
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS comp1044_irms;
+DROP DATABASE IF EXISTS comp1044_irms;
+CREATE DATABASE comp1044_irms;
 USE comp1044_irms;
 
 -- ------------------------------------------------------------
--- 1. Users (Admin + Assessors)
+-- 1. Students
 -- ------------------------------------------------------------
-CREATE TABLE users (
-    user_id     INT AUTO_INCREMENT PRIMARY KEY,
-    username    VARCHAR(50)  NOT NULL UNIQUE,
-    password    VARCHAR(255) NOT NULL,          -- store hashed password
+CREATE TABLE students (
+    student_id  VARCHAR(10)  PRIMARY KEY,
     full_name   VARCHAR(100) NOT NULL,
-    role        ENUM('admin','assessor') NOT NULL,
-    email       VARCHAR(100),
+    programme   ENUM('Engineering','Arts and Design','Computer Science','Finance') NOT NULL,
+    email       VARCHAR(100) NOT NULL UNIQUE,
+    status      ENUM('active','inactive') DEFAULT 'active',
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ------------------------------------------------------------
--- 2. Students
+-- 2. Users
+--    - lecturer: belongs to programme
+--    - supervisor: belongs to company
 -- ------------------------------------------------------------
-CREATE TABLE students (
-    student_id  VARCHAR(10)  PRIMARY KEY,       -- e.g. S0025
-    full_name   VARCHAR(100) NOT NULL,
-    programme   VARCHAR(50)  NOT NULL,
-    email       VARCHAR(100),
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE users (
+    user_id       INT AUTO_INCREMENT PRIMARY KEY,
+    username      VARCHAR(50)  NOT NULL UNIQUE,
+    password      VARCHAR(255) NOT NULL,
+    full_name     VARCHAR(100) NOT NULL,
+    role          ENUM('admin','lecturer','supervisor','student') NOT NULL,
+    programme     ENUM('Engineering','Arts and Design','Computer Science','Finance') DEFAULT NULL,
+    company_name  VARCHAR(150) DEFAULT NULL,
+    email         VARCHAR(100) NOT NULL UNIQUE,
+    student_id    VARCHAR(10) DEFAULT NULL,
+    status        ENUM('active','inactive') DEFAULT 'active',
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE SET NULL
 );
 
 -- ------------------------------------------------------------
 -- 3. Internships
+--    Split old assessor_id into lecturer_id + supervisor_id
 -- ------------------------------------------------------------
 CREATE TABLE internships (
     internship_id   INT AUTO_INCREMENT PRIMARY KEY,
-    student_id      VARCHAR(10)  NOT NULL,
-    assessor_id     INT,
-    company_name    VARCHAR(150) NOT NULL,
-    industry        VARCHAR(100),
-    start_date      DATE,
-    end_date        DATE,
-    status          ENUM('assigned','pending','unassigned') DEFAULT 'unassigned',
+    student_id      VARCHAR(10) NOT NULL UNIQUE,
+    lecturer_id     INT DEFAULT NULL,
+    supervisor_id   INT DEFAULT NULL,
+    company_name    VARCHAR(150) DEFAULT NULL,
+    industry        VARCHAR(100) DEFAULT NULL,
+    start_date      DATE DEFAULT NULL,
+    end_date        DATE DEFAULT NULL,
+    status          ENUM('unassigned','pending','completed') DEFAULT 'unassigned',
     notes           TEXT,
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (student_id)  REFERENCES students(student_id)  ON DELETE CASCADE,
-    FOREIGN KEY (assessor_id) REFERENCES users(user_id)        ON DELETE SET NULL
+    FOREIGN KEY (student_id)    REFERENCES students(student_id) ON DELETE CASCADE,
+    FOREIGN KEY (lecturer_id)   REFERENCES users(user_id) ON DELETE SET NULL,
+    FOREIGN KEY (supervisor_id) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
 -- ------------------------------------------------------------
@@ -56,58 +70,100 @@ CREATE TABLE internships (
 CREATE TABLE assessments (
     assessment_id               INT AUTO_INCREMENT PRIMARY KEY,
     internship_id               INT NOT NULL,
-    undertaking_tasks           DECIMAL(5,2) DEFAULT 0,   -- 10%
-    health_safety               DECIMAL(5,2) DEFAULT 0,   -- 10%
-    theoretical_knowledge       DECIMAL(5,2) DEFAULT 0,   -- 10%
-    report_presentation         DECIMAL(5,2) DEFAULT 0,   -- 15%
-    clarity_language            DECIMAL(5,2) DEFAULT 0,   -- 10%
-    lifelong_learning           DECIMAL(5,2) DEFAULT 0,   -- 15%
-    project_management          DECIMAL(5,2) DEFAULT 0,   -- 15%
-    time_management             DECIMAL(5,2) DEFAULT 0,   -- 15%
-    total_score                 DECIMAL(5,2) DEFAULT 0,   -- auto-calculated
+    assessor_type               ENUM('lecturer', 'supervisor') NOT NULL,
+    undertaking_tasks           DECIMAL(5,2) DEFAULT NULL,   -- 10%
+    health_safety               DECIMAL(5,2) DEFAULT NULL,   -- 10%
+    theoretical_knowledge       DECIMAL(5,2) DEFAULT NULL,   -- 10%
+    report_presentation         DECIMAL(5,2) DEFAULT NULL,   -- 15%
+    clarity_language            DECIMAL(5,2) DEFAULT NULL,   -- 10%
+    lifelong_learning           DECIMAL(5,2) DEFAULT NULL,   -- 15%
+    project_management          DECIMAL(5,2) DEFAULT NULL,   -- 15%
+    time_management             DECIMAL(5,2) DEFAULT NULL,   -- 15%
+    total_score                 DECIMAL(5,2) DEFAULT NULL,   -- auto-calculated
     comments                    TEXT,
     submitted_at                DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at                  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
+    UNIQUE KEY unique_assessment (internship_id, assessor_type),
     FOREIGN KEY (internship_id) REFERENCES internships(internship_id) ON DELETE CASCADE
+);
+
+-- ------------------------------------------------------------
+-- 5. Activity Logs
+-- ------------------------------------------------------------
+CREATE TABLE activity_logs (
+    log_id       INT AUTO_INCREMENT PRIMARY KEY,
+    action_type  VARCHAR(50) NOT NULL,
+    target_type  VARCHAR(50) NOT NULL,
+    target_id    INT DEFAULT NULL,
+    title        VARCHAR(255) NOT NULL,
+    description  TEXT NOT NULL,
+    link_url     VARCHAR(255) DEFAULT NULL,
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ------------------------------------------------------------
 -- Sample Data
 -- ------------------------------------------------------------
 
--- Users (passwords are MD5 hashed — use password_hash() in real PHP)
-INSERT INTO users (username, password, full_name, role, email) VALUES
-('admin',    MD5('admin123'),    'Admin User',    'admin',    'admin@university.edu.my'),
-('dr_amir',  MD5('amir123'),     'Dr. Amir',      'assessor', 'amir@university.edu.my'),
-('dr_lina',  MD5('lina123'),     'Dr. Lina',      'assessor', 'lina@university.edu.my'),
-('prof_raj', MD5('raj123'),      'Prof. Raj',     'assessor', 'raj@university.edu.my');
+-- Students (10 only)
+INSERT INTO students (student_id, full_name, programme, email, status) VALUES
+('S0021', 'Ahmad Zulkifli',   'Computer Science', 'ahmad@student.edu.my', 'active'),
+('S0022', 'Nurul Aina',       'Finance',          'nurul@student.edu.my', 'active'),
+('S0023', 'Khairul Hisham',   'Engineering',      'khairul@student.edu.my', 'active'),
+('S0024', 'Siti Hajar',       'Computer Science', 'siti@student.edu.my', 'active'),
+('S0025', 'Lee Wei Jian',     'Arts and Design',  'lee@student.edu.my', 'active'),
+('S0026', 'Priya Rajan',      'Finance',          'priya@student.edu.my', 'active'),
+('S0027', 'Hafizuddin Malik', 'Computer Science', 'hafiz@student.edu.my', 'active'),
+('S0028', 'Amirah Zainudin',  'Arts and Design',  'amirah@student.edu.my', 'active'),
+('S0029', 'Tan Jia Hui',      'Computer Science', 'tan@student.edu.my', 'active'),
+('S0030', 'Muhammad Faris',   'Engineering',      'faris@student.edu.my', 'active');
 
--- Students
-INSERT INTO students (student_id, full_name, programme, email) VALUES
-('S0021', 'Ahmad Zulkifli',  'CS', 'ahmad@student.edu.my'),
-('S0022', 'Nurul Aina',      'IT', 'nurul@student.edu.my'),
-('S0023', 'Khairul Hisham',  'SE', 'khairul@student.edu.my'),
-('S0024', 'Siti Hajar',      'CS', 'siti@student.edu.my'),
-('S0025', 'Lee Wei Jian',    'IT', 'lee@student.edu.my'),
-('S0026', 'Priya Rajan',     'SE', 'priya@student.edu.my'),
-('S0027', 'Hafizuddin Malik','CS', 'hafiz@student.edu.my'),
-('S0028', 'Amirah Zainudin', 'IT', 'amirah@student.edu.my'),
-('S0029', 'Tan Jia Hui',     'CS', 'tan@student.edu.my'),
-('S0030', 'Muhammad Faris',  'SE', 'faris@student.edu.my'),
-('S0031', 'Nur Syahirah',    'IT', 'nur@student.edu.my'),
-('S0032', 'Azrul Nizam',     'CS', 'azrul@student.edu.my');
+-- Users
+INSERT INTO users (username, password, full_name, role, programme, company_name, email, student_id, status) VALUES
+('admin',    MD5('admin123'),   'Admin User',       'admin',      NULL,               NULL,              'admin@university.edu.my', NULL, 'active'),
+
+-- Computer Science lecturers (2)
+('lec_1001', MD5('lina1234'),   'Dr. Lina',         'lecturer',   'Computer Science', NULL,              'lina@university.edu.my', NULL, 'active'),
+('lec_1002', MD5('raj12345'),   'Prof. Raj',        'lecturer',   'Computer Science', NULL,              'raj@university.edu.my', NULL, 'active'),
+
+-- Arts and Design lecturers (1)
+('lec_1003', MD5('amin1234'),   'Dr. Amin Hassan',  'lecturer',   'Arts and Design',  NULL,              'amin@university.edu.my', NULL, 'active'),
+
+-- Engineering lecturers (2)
+('lec_1004', MD5('farah123'),   'Dr. Farah',        'lecturer',   'Engineering',      NULL,              'farah@university.edu.my', NULL, 'active'),
+('lec_1005', MD5('kumar123'),   'Dr. Kumar',        'lecturer',   'Engineering',      NULL,              'kumar@university.edu.my', NULL, 'active'),
+
+-- Finance lecturers (2)
+('lec_1006', MD5('brenda123'),  'Prof. Brenda Lim', 'lecturer',   'Finance',          NULL,              'brenda@university.edu.my', NULL, 'active'),
+('lec_1007', MD5('kelvin123'),  'Dr. Kelvin Goh',   'lecturer',   'Finance',          NULL,              'kelvin@university.edu.my', NULL, 'active'),
+
+-- Supervisors (2)
+('sup_2001', MD5('intel123'),   'Mr. John Tan',     'supervisor', NULL,               'Intel Penang',    'john.tan@intel.com', NULL, 'active'),
+('sup_2002', MD5('maybank123'), 'Ms. Sarah Lim',    'supervisor', NULL,               'Maybank',         'sarah.lim@maybank.com', NULL, 'active'),
+
+-- Student users (10 only)
+('S0021', MD5('stud0021'), 'Ahmad Zulkifli',   'student', 'Computer Science', NULL, 'ahmad@student.irms.com',   'S0021', 'active'),
+('S0022', MD5('stud0022'), 'Nurul Aina',       'student', 'Finance',          NULL, 'nurul@student.irms.com',   'S0022', 'active'),
+('S0023', MD5('stud0023'), 'Khairul Hisham',   'student', 'Engineering',      NULL, 'khairul@student.irms.com', 'S0023', 'active'),
+('S0024', MD5('stud0024'), 'Siti Hajar',       'student', 'Computer Science', NULL, 'siti@student.irms.com',    'S0024', 'active'),
+('S0025', MD5('stud0025'), 'Lee Wei Jian',     'student', 'Arts and Design',  NULL, 'lee@student.irms.com',     'S0025', 'active'),
+('S0026', MD5('stud0026'), 'Priya Rajan',      'student', 'Finance',          NULL, 'priya@student.irms.com',   'S0026', 'active'),
+('S0027', MD5('stud0027'), 'Hafizuddin Malik', 'student', 'Computer Science', NULL, 'hafiz@student.irms.com',   'S0027', 'active'),
+('S0028', MD5('stud0028'), 'Amirah Zainudin',  'student', 'Arts and Design',  NULL, 'amirah@student.irms.com',  'S0028', 'active'),
+('S0029', MD5('stud0029'), 'Tan Jia Hui',      'student', 'Computer Science', NULL, 'tan@student.irms.com',     'S0029', 'active'),
+('S0030', MD5('stud0030'), 'Muhammad Faris',   'student', 'Engineering',      NULL, 'faris@student.irms.com',   'S0030', 'active');
 
 -- Internships
-INSERT INTO internships (student_id, assessor_id, company_name, industry, start_date, end_date, status, notes) VALUES
-('S0021', 2, 'Petronas Digital',    'Technology / IT',     '2026-06-01', '2026-10-31', 'assigned',   ''),
-('S0022', 3, 'CIMB Tech',          'Finance / Banking',   '2026-06-01', '2026-10-31', 'assigned',   ''),
-('S0023', 4, 'Axiata',             'Telecommunications',  '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0024', 2, 'Maxis Bhd',          'Telecommunications',  '2026-06-01', '2026-10-31', 'assigned',   ''),
-('S0025', NULL, '',                '',                    NULL,         NULL,         'unassigned', ''),
-('S0026', 3, 'Grab Malaysia',      'Technology / IT',     '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0027', 4, 'Dell Technologies',  'Technology / IT',     '2026-06-01', '2026-10-31', 'assigned',   ''),
-('S0028', NULL, '',                '',                    NULL,         NULL,         'unassigned', ''),
-('S0029', 2, 'Intel Penang',       'Technology / IT',     '2026-06-01', '2026-10-31', 'assigned',   ''),
-('S0030', 3, 'Huawei Malaysia',    'Telecommunications',  '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0031', NULL, '',                '',                    NULL,         NULL,         'unassigned', ''),
-('S0032', 4, 'TM One',             'Telecommunications',  '2026-06-01', '2026-10-31', 'assigned',   '');
+-- 6 unassigned, 4 pending
+INSERT INTO internships (student_id, lecturer_id, supervisor_id, company_name, industry, start_date, end_date, status, notes) VALUES
+('S0021', 2,  9,  'Intel Penang', 'Technology / IT',   '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0022', 7, 10,  'Maybank',      'Finance / Banking', '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0023', 5,  9,  'Intel Penang', 'Engineering',       '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0024', 3,  9,  'Intel Penang', 'Technology / IT',   '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0025', NULL, NULL, NULL,       NULL,                NULL,         NULL,         'unassigned', ''),
+('S0026', NULL, NULL, NULL,       NULL,                NULL,         NULL,         'unassigned', ''),
+('S0027', NULL, NULL, NULL,       NULL,                NULL,         NULL,         'unassigned', ''),
+('S0028', NULL, NULL, NULL,       NULL,                NULL,         NULL,         'unassigned', ''),
+('S0029', NULL, NULL, NULL,       NULL,                NULL,         NULL,         'unassigned', ''),
+('S0030', NULL, NULL, NULL,       NULL,                NULL,         NULL,         'unassigned', '');

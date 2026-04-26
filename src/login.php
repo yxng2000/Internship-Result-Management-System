@@ -2,16 +2,31 @@
 session_start();
 require_once 'config.php';
 
-$conn = getConnection();
-$error = '';
+$error = "";
 
-// 已登录就直接去 dashboard
-if (isset($_SESSION['user_id'])) {
-    header("Location: dashboard.php");
-    exit();
+function redirectByRole($role) {
+    if ($role === 'admin') {
+        header("Location: admin_dashboard.php");
+        exit();
+    }
+
+    if ($role === 'lecturer' || $role === 'supervisor') {
+        header("Location: assessor_dashboard.php");
+        exit();
+    }
+
+    if ($role === 'student') {
+        header("Location: student_dashboard.php");
+        exit();
+    }
 }
 
-// 处理登录
+// if already logged in, redirect to respective dashboard
+if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
+    redirectByRole($_SESSION['role']);
+}
+
+// process login form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
@@ -19,274 +34,373 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($username === '' || $password === '') {
         $error = "Please enter username and password.";
     } else {
-        $stmt = $conn->prepare("
-            SELECT user_id, username, password, role, full_name
-            FROM users
-            WHERE username = ?
-            LIMIT 1
-        ");
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $user = $result->fetch_assoc();
+        $isValidFormat = false;
 
-        // 如果你的数据库 password 是明文
-        if ($user && $password === $user['password']) {
-            $_SESSION['user_id']   = $user['user_id'];
-            $_SESSION['role']      = $user['role'];
-            $_SESSION['full_name'] = $user['full_name'];
-
-            header("Location: dashboard.php");
-            exit();
-        } else {
-            $error = "Invalid username or password.";
+        if ($username === 'admin') {
+            $isValidFormat = true;
+        } elseif (preg_match('/^lec_\d{4}$/', $username)) {
+            $isValidFormat = true;
+        } elseif (preg_match('/^sup_\d{4}$/', $username)) {
+            $isValidFormat = true;
+        } elseif (preg_match('/^S\d{4}$/', $username)) {
+            $isValidFormat = true;
         }
 
-        $stmt->close();
+        if (!$isValidFormat) {
+            $error = "Invalid username format.";
+        } else {
+            $conn = getConnection();
+
+            $stmt = $conn->prepare("
+                SELECT user_id, username, password, role, full_name, student_id, programme, company_name, status
+                FROM users
+                WHERE username = ?
+                LIMIT 1
+            ");
+            $stmt->bind_param("s", $username);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $user = $result->fetch_assoc();
+
+            if (!$user) {
+                $error = "Username does not exist.";
+            } elseif ($user['status'] !== 'active') {
+                $error = "This account is inactive.";
+            } elseif (md5($password) !== $user['password']) {
+                $error = "Invalid password.";
+            } else {
+                $_SESSION['user_id'] = $user['user_id'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['role'] = $user['role'];
+                $_SESSION['full_name'] = $user['full_name'];
+                $_SESSION['student_id'] = $user['student_id'];
+                $_SESSION['programme'] = $user['programme'];
+                $_SESSION['company_name'] = $user['company_name'];
+
+                redirectByRole($user['role']);
+                $error = "Invalid user role.";
+            }
+
+            $stmt->close();
+            $conn->close();
+        }
     }
 }
-
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login | Internship System</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login | IRMSYS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --navy:   #0f1b2d;
-      --ink:    #1a2e45;
-      --teal:   #0d7377;
-      --gold:   #e8a838;
-      --cream:  #f7f3ec;
-      --white:  #ffffff;
-      --muted:  #6b7a8d;
-      --border: #d8dce3;
-      --shadow: 0 4px 24px rgba(15,27,45,0.10);
-      --danger: #c0392b;
-    }
-
-    * {
+    *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
     }
 
+    :root {
+      --bg:        #0e0f13;
+      --surface:   #16181f;
+      --surface2:  #1e2029;
+      --border:    #2a2d38;
+      --accent:    #4f8ef7;
+      --accent2:   #7c6af7;
+      --text:      #e8eaf0;
+      --muted:     #6b7080;
+      --danger:    #e05555;
+      --radius:    10px;
+      --font:      'Syne', sans-serif;
+      --mono:      'DM Mono', monospace;
+    }
+
     body {
-      font-family: 'DM Sans', sans-serif;
-      background: linear-gradient(135deg, #f7f3ec 0%, #eef4f4 100%);
-      color: var(--navy);
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .topbar {
-      background: var(--navy);
-      padding: 0 2rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 62px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-    }
-
-    .topbar-brand {
-      font-family: 'DM Serif Display', serif;
-      color: var(--white);
-      font-size: 1.1rem;
-    }
-
-    .topbar-brand span {
-      color: var(--gold);
-    }
-
-    .login-wrapper {
-      flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 2rem;
+      padding: 32px;
+      background:
+        radial-gradient(circle at top left, rgba(79,142,247,0.08), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(124,106,247,0.08), transparent 30%),
+        var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+    }
+
+    .login-shell {
+      width: 100%;
+      max-width: 440px;
+    }
+
+    .login-brand {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    .login-brand .system {
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .login-brand h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+
+    .login-brand p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
     }
 
     .login-card {
-      width: 100%;
-      max-width: 430px;
-      background: var(--white);
-      border-radius: 18px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-      border: 1px solid rgba(15,27,45,0.05);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 26px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
     }
 
-    .login-header {
-      background: linear-gradient(135deg, var(--teal) 0%, var(--ink) 100%);
-      color: var(--white);
-      padding: 2rem 2rem 1.6rem;
-      text-align: center;
+    .helper-box,
+    .error-box {
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.55;
+      margin-bottom: 16px;
     }
 
-    .login-header h1 {
-      font-family: 'DM Serif Display', serif;
-      font-size: 2rem;
-      margin-bottom: 0.35rem;
-    }
-
-    .login-header p {
-      color: rgba(255,255,255,0.78);
-      font-size: 0.92rem;
-    }
-
-    .login-body {
-      padding: 2rem;
-    }
-
-    .form-group {
-      margin-bottom: 1.1rem;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 0.45rem;
-      font-size: 0.78rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--muted);
-    }
-
-    .form-group input {
-      width: 100%;
-      padding: 0.85rem 1rem;
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 0.95rem;
-      color: var(--navy);
-      background: var(--cream);
-      transition: all 0.2s ease;
-    }
-
-    .form-group input:focus {
-      outline: none;
-      border-color: var(--teal);
-      background: var(--white);
-      box-shadow: 0 0 0 3px rgba(13,115,119,0.08);
+    .helper-box {
+      background: rgba(79,142,247,0.08);
+      border: 1px solid rgba(79,142,247,0.18);
+      color: #bfd3ff;
     }
 
     .error-box {
-      margin-bottom: 1rem;
-      background: #fff1ef;
-      color: var(--danger);
-      border: 1px solid #f3c4bd;
-      padding: 0.85rem 1rem;
-      border-radius: 10px;
-      font-size: 0.9rem;
+      background: rgba(224,85,85,0.08);
+      border: 1px solid rgba(224,85,85,0.22);
+      color: #ffaaaa;
     }
 
-    .btn-login {
-      width: 100%;
-      border: none;
-      border-radius: 10px;
-      background: var(--teal);
-      color: var(--white);
-      padding: 0.9rem 1rem;
-      font-size: 0.95rem;
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 12px;
       font-weight: 600;
-      font-family: 'DM Sans', sans-serif;
-      cursor: pointer;
-      transition: background 0.2s ease, transform 0.15s ease;
-    }
-
-    .btn-login:hover {
-      background: #0a5e62;
-    }
-
-    .btn-login:active {
-      transform: translateY(1px);
-    }
-
-    .login-footer {
-      margin-top: 1rem;
-      text-align: center;
-      font-size: 0.84rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
       color: var(--muted);
     }
 
-    .login-footer strong {
-      color: var(--navy);
+    input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      padding: 12px 14px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    }
+
+    input::placeholder {
+      color: var(--muted);
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79,142,247,0.12);
+      background: #202330;
+    }
+
+    .login-btn {
+      width: 100%;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font);
+      font-size: 13.5px;
+      font-weight: 600;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-top: 4px;
+    }
+
+    .login-btn:hover {
+      background: #3d7ef5;
+      transform: translateY(-1px);
+    }
+
+    .test-accounts {
+      margin-top: 18px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .test-accounts-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .test-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .test-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .test-role {
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .test-cred {
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height: 1.6;
+      word-break: break-word;
+    }
+
+    .test-cred span {
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11.5px;
+    }
+
+    .login-footer {
+      margin-top: 16px;
+      text-align: center;
+      font-size: 11.5px;
+      color: var(--muted);
+      font-family: var(--mono);
+      letter-spacing: 0.04em;
     }
 
     @media (max-width: 520px) {
+      body {
+        padding: 20px;
+      }
+
       .login-card {
-        max-width: 100%;
+        padding: 20px;
       }
 
-      .login-header,
-      .login-body {
-        padding: 1.4rem;
+      .login-brand h1 {
+        font-size: 24px;
       }
 
-      .login-header h1 {
-        font-size: 1.7rem;
+      .test-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
 </head>
 <body>
+  <div class="login-shell">
+    <div class="login-brand">
+      <div class="system">IRMSYS</div>
+      <h1>Welcome back</h1>
+      <p>Sign in to continue to the Internship Result Management System.</p>
+    </div>
 
-  <nav class="topbar">
-    <div class="topbar-brand">Internship <span>Results</span> System</div>
-  </nav>
-
-  <div class="login-wrapper">
     <div class="login-card">
-      <div class="login-header">
-        <h1>Welcome Back</h1>
-        <p>Sign in to access the internship management dashboard</p>
+      <div class="helper-box">
+        Use your assigned username and password to access the correct dashboard.
       </div>
 
-      <div class="login-body">
-        <?php if ($error): ?>
-          <div class="error-box"><?= htmlspecialchars($error) ?></div>
-        <?php endif; ?>
+      <?php if (!empty($error)): ?>
+        <div class="error-box"><?= htmlspecialchars($error) ?></div>
+      <?php endif; ?>
 
-        <form method="POST" action="login.php">
-          <div class="form-group">
-            <label for="username">Username</label>
-            <input
-              type="text"
-              id="username"
-              name="username"
-              placeholder="Enter your username"
-              value="<?= htmlspecialchars($_POST['username'] ?? '') ?>"
-              required
-            >
+      <form method="POST" action="login.php">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            placeholder="Enter your username"
+            value="<?= htmlspecialchars($_POST['username'] ?? '') ?>"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="Enter your password"
+            required
+          >
+        </div>
+
+        <button type="submit" class="login-btn">Sign In</button>
+      </form>
+
+      <div class="test-accounts">
+        <div class="test-accounts-title">Test Accounts</div>
+        <div class="test-grid">
+          <div class="test-item">
+            <div class="test-role">Admin</div>
+            <div class="test-cred">Username: <span>admin</span></div>
+            <div class="test-cred">Password: <span>admin123</span></div>
           </div>
 
-          <div class="form-group">
-            <label for="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              placeholder="Enter your password"
-              required
-            >
+          <div class="test-item">
+            <div class="test-role">Lecturer</div>
+            <div class="test-cred">Username: <span>lec_1001</span></div>
+            <div class="test-cred">Password: <span>lina1234</span></div>
           </div>
 
-          <button type="submit" class="btn-login">Login</button>
-        </form>
+          <div class="test-item">
+            <div class="test-role">Supervisor</div>
+            <div class="test-cred">Username: <span>sup_2001</span></div>
+            <div class="test-cred">Password: <span>intel123</span></div>
+          </div>
 
-        <div class="login-footer">
-          Please log in with your <strong>staff account</strong>.
+          <div class="test-item">
+            <div class="test-role">Student</div>
+            <div class="test-cred">Username: <span>S0021</span></div>
+            <div class="test-cred">Password: <span>stud0021</span></div>
+          </div>
         </div>
       </div>
+
+      <div class="login-footer">Secure access • Internship Result Management</div>
     </div>
   </div>
-
 </body>
 </html>

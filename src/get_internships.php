@@ -8,36 +8,103 @@ require_once 'config.php';
 
 $conn = getConnection();
 
-$search   = isset($_GET['search']) ? '%' . $conn->real_escape_string($_GET['search']) . '%' : '%';
-$status   = isset($_GET['status']) && $_GET['status'] !== 'all' ? $conn->real_escape_string($_GET['status']) : null;
-$assessor = isset($_GET['assessor']) && $_GET['assessor'] !== 'all' ? $conn->real_escape_string($_GET['assessor']) : null;
+$search    = isset($_GET['search']) ? '%' . $_GET['search'] . '%' : '%';
+$status    = isset($_GET['status']) && $_GET['status'] !== 'all' ? $_GET['status'] : null;
+$assessor  = isset($_GET['assessor']) && $_GET['assessor'] !== 'all' ? $_GET['assessor'] : null;
+$programme = isset($_GET['programme']) && $_GET['programme'] !== 'all' ? $_GET['programme'] : null;
 
 $sql = "
     SELECT
         s.student_id,
         s.full_name,
         s.programme,
-        u.full_name AS assessor_name,
         i.company_name,
         i.industry,
         i.start_date,
         i.end_date,
         i.internship_id,
-        a.total_score
+
+        lec.full_name AS lecturer_name,
+        sup.full_name AS supervisor_name,
+
+        la.total_score AS lecturer_score,
+        sa.total_score AS supervisor_score,
+
+        CASE
+            WHEN i.lecturer_id IS NULL
+                 OR i.supervisor_id IS NULL
+                 OR i.company_name IS NULL
+                 OR i.company_name = ''
+            THEN 'unassigned'
+
+            WHEN la.total_score IS NOT NULL
+                 AND sa.total_score IS NOT NULL
+            THEN 'completed'
+
+            ELSE 'pending'
+        END AS status
+
     FROM internships i
-    JOIN students s ON i.student_id = s.student_id
-    LEFT JOIN users u ON i.assessor_id = u.user_id
-    LEFT JOIN assessments a 
-        ON i.internship_id = a.internship_id
-    WHERE (s.student_id LIKE ? OR s.full_name LIKE ?)
+
+    JOIN students s
+        ON i.student_id = s.student_id
+
+    JOIN users stu
+        ON stu.student_id = s.student_id
+
+    LEFT JOIN users lec
+        ON i.lecturer_id = lec.user_id
+
+    LEFT JOIN users sup
+        ON i.supervisor_id = sup.user_id
+
+    LEFT JOIN assessments la
+        ON i.internship_id = la.internship_id
+       AND la.assessor_type = 'lecturer'
+
+    LEFT JOIN assessments sa
+        ON i.internship_id = sa.internship_id
+       AND sa.assessor_type = 'supervisor'
+
+    WHERE stu.status = 'active'
+      AND (s.student_id LIKE ? OR s.full_name LIKE ?)
 ";
 
 $params = [$search, $search];
 $types  = 'ss';
 
+if ($status) {
+    $sql .= "
+        AND (
+            CASE
+                WHEN i.lecturer_id IS NULL
+                     OR i.supervisor_id IS NULL
+                     OR i.company_name IS NULL
+                     OR i.company_name = ''
+                THEN 'unassigned'
+
+                WHEN la.total_score IS NOT NULL
+                     AND sa.total_score IS NOT NULL
+                THEN 'completed'
+
+                ELSE 'pending'
+            END
+        ) = ?
+    ";
+    $params[] = $status;
+    $types .= 's';
+}
+
 if ($assessor) {
-    $sql .= " AND u.full_name = ?";
+    $sql .= " AND (lec.full_name = ? OR sup.full_name = ?)";
     $params[] = $assessor;
+    $params[] = $assessor;
+    $types .= 'ss';
+}
+
+if ($programme) {
+    $sql .= " AND s.programme = ?";
+    $params[] = $programme;
     $types .= 's';
 }
 
@@ -46,10 +113,11 @@ $sql .= " ORDER BY s.student_id ASC";
 $stmt = $conn->prepare($sql);
 
 if (!$stmt) {
-    die(json_encode([
+    echo json_encode([
         'error' => 'Prepare failed',
         'details' => $conn->error
-    ]));
+    ]);
+    exit;
 }
 
 $stmt->bind_param($types, ...$params);
@@ -65,20 +133,24 @@ $counts = [
 ];
 
 while ($row = $result->fetch_assoc()) {
-    if (empty($row['assessor_name'])) {
-        $row['status'] = 'unassigned';
-    } elseif ($row['total_score'] === null) {
-        $row['status'] = 'pending';
-    } else {
-        $row['status'] = 'completed';
-    }
+    $row['lecturer_score'] = $row['lecturer_score'] !== null ? (float)$row['lecturer_score'] : null;
+    $row['supervisor_score'] = $row['supervisor_score'] !== null ? (float)$row['supervisor_score'] : null;
 
-    if ($status && $row['status'] !== $status) {
-        continue;
+    if ($row['status'] === 'unassigned') {
+        $row['company_name'] = null;
+        $row['industry'] = null;
+        $row['start_date'] = null;
+        $row['end_date'] = null;
+        $row['lecturer_name'] = null;
+        $row['supervisor_name'] = null;
     }
 
     $rows[] = $row;
-    $counts[$row['status']]++;
+
+    if (isset($counts[$row['status']])) {
+        $counts[$row['status']]++;
+    }
+
     $counts['total']++;
 }
 
