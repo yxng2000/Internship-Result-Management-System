@@ -297,17 +297,31 @@ $conn->close();
       background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.72); cursor: not-allowed;
     }
     .helper-text { color: rgba(255,255,255,0.5); font-size: 13px; line-height: 1.5; }
-    .button-row { display: flex; gap: 16px; margin-top: 34px; }
+    .button-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 34px; }
     .btn-primary, .btn-secondary {
       display: inline-flex; align-items: center; justify-content: center;
-      min-width: 136px; padding: 16px 24px; border-radius: 18px;
-      text-decoration: none; font-size: 15px; font-weight: 700; transition: 0.2s;
-      cursor: pointer; border: none;
+      width: 136px; min-width: 136px; height: 42px; padding: 0 16px;
+      border-radius: 10px; text-decoration: none; font-size: 13.5px; font-weight: 600;
+      transition: all 0.15s ease; cursor: pointer; border: 1px solid transparent;
+      font-family: var(--font);
     }
-    .btn-primary { background: linear-gradient(135deg, #7a8cff 0%, #6fa4ff 100%); color: #fff; }
-    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(106,136,255,0.28); }
-    .btn-secondary { background: rgba(255,255,255,0.06); color: #d9dfff; border: 1px solid rgba(255,255,255,0.08); }
-    .btn-secondary:hover { background: rgba(255,255,255,0.10); }
+    .btn-primary {
+      background: rgba(79,142,247,0.12);
+      color: #4f8ef7;
+      border-color: rgba(79,142,247,0.25);
+    }
+    .btn-primary:hover {
+      background: rgba(79,142,247,0.18);
+      border-color: rgba(79,142,247,0.42);
+      color: #78a8ff;
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: rgba(255,255,255,0.04);
+      color: rgba(232,234,240,0.82);
+      border-color: rgba(255,255,255,0.08);
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.08); color: #fff; }
     @media (max-width: 900px) {
       body { flex-direction: column; }
       .sidebar { width: 100%; }
@@ -453,8 +467,8 @@ $conn->close();
         <?php endif; ?>
 
         <div class="button-row">
-          <button type="submit" class="btn-primary">Update User</button>
           <a href="user_management.php" class="btn-secondary">Cancel</a>
+          <button type="submit" class="btn-primary">Save Changes</button>
         </div>
       </form>
     </div>

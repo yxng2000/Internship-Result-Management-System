@@ -88,7 +88,7 @@ $avatar = get_initials($full_name);
   .logout-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 14px; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: #ff6b6b; font-size: 13px; font-weight: 600; text-decoration: none; transition: all 0.15s ease; flex-shrink: 0; }
   .logout-btn:hover { background: rgba(224, 85, 85, 0.08); border-color: #e05555; color: #ff7b7b; }
 
-  .main { margin-left: 220px; flex: 1; padding: 32px 36px; max-width: 900px; }
+  .main { margin-left: 220px; flex: 1; padding: 32px 36px; max-width: 1120px; }
 
   .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); margin-bottom: 20px; }
   .breadcrumb a { color: var(--muted); text-decoration: none; transition: color 0.15s; }

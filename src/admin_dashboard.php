@@ -172,9 +172,9 @@ function get_pending_evaluations(mysqli $conn, int $limit = 5): array {
           AND (lecturer_assessment.assessment_id IS NULL OR supervisor_assessment.assessment_id IS NULL)
         ORDER BY
             CASE
-                WHEN lecturer_assessment.assessment_id IS NULL AND supervisor_assessment.assessment_id IS NULL THEN 1
-                WHEN lecturer_assessment.assessment_id IS NULL THEN 2
-                WHEN supervisor_assessment.assessment_id IS NULL THEN 3
+                WHEN lecturer_assessment.assessment_id IS NULL AND supervisor_assessment.assessment_id IS NOT NULL THEN 1
+                WHEN lecturer_assessment.assessment_id IS NOT NULL AND supervisor_assessment.assessment_id IS NULL THEN 2
+                WHEN lecturer_assessment.assessment_id IS NULL AND supervisor_assessment.assessment_id IS NULL THEN 3
                 ELSE 4
             END,
             sort_updated_at DESC,

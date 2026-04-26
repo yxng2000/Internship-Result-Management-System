@@ -22,6 +22,7 @@ $sql = "
     FROM users u
     LEFT JOIN internships i ON u.user_id = i.lecturer_id
     WHERE u.role = 'lecturer'
+  AND u.status = 'active'
 ";
 
 $params = [];

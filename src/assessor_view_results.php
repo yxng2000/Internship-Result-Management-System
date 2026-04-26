@@ -88,7 +88,7 @@ $avatar = get_initials($full_name);
   .logout-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 14px; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: #ff6b6b; font-size: 13px; font-weight: 600; text-decoration: none; transition: all 0.15s ease; flex-shrink: 0; }
   .logout-btn:hover { background: rgba(224, 85, 85, 0.08); border-color: #e05555; color: #ff7b7b; }
 
-  .main { margin-left: 220px; flex: 1; padding: 32px 36px; max-width: 1100px; }
+  .main { margin-left: 220px; flex: 1; padding: 32px 36px; max-width: calc(100% - 220px); width: calc(100% - 220px); }
 
   .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 28px; }
   .page-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
@@ -111,7 +111,7 @@ $avatar = get_initials($full_name);
   .stat-value.purple { color: var(--accent2); }
 
   .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-  .search-wrap { position: relative; flex: 1; min-width: 200px; max-width: 320px; }
+  .search-wrap { position: relative; flex: 1; min-width: 200px; max-width: 420px; }
   .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); }
   .search-input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 13.5px; padding: 9px 12px 9px 36px; outline: none; transition: border-color 0.15s; }
   .search-input::placeholder { color: var(--muted); }

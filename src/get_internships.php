@@ -136,6 +136,15 @@ while ($row = $result->fetch_assoc()) {
     $row['lecturer_score'] = $row['lecturer_score'] !== null ? (float)$row['lecturer_score'] : null;
     $row['supervisor_score'] = $row['supervisor_score'] !== null ? (float)$row['supervisor_score'] : null;
 
+    if ($row['status'] === 'unassigned') {
+        $row['company_name'] = null;
+        $row['industry'] = null;
+        $row['start_date'] = null;
+        $row['end_date'] = null;
+        $row['lecturer_name'] = null;
+        $row['supervisor_name'] = null;
+    }
+
     $rows[] = $row;
 
     if (isset($counts[$row['status']])) {

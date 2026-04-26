@@ -288,6 +288,31 @@ requireRole('admin');
   .btn-primary:active { transform: scale(0.98); }
   .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
   .btn-ghost:hover { color: var(--text); border-color: var(--text); }
+
+  /* Unified Save Changes button style */
+  .form-footer .btn-primary {
+    width: 136px;
+    min-width: 136px;
+    height: 42px;
+    padding: 0 16px;
+    background: rgba(79,142,247,0.12);
+    color: var(--accent);
+    border: 1px solid rgba(79,142,247,0.25);
+    border-radius: var(--radius);
+    justify-content: center;
+  }
+
+  .form-footer .btn-primary:hover {
+    background: rgba(79,142,247,0.18);
+    border-color: rgba(79,142,247,0.42);
+    color: #78a8ff;
+    transform: translateY(-1px);
+  }
+
+  .form-footer .btn-primary:active {
+    transform: scale(0.98);
+  }
+
   .btn-danger { background: transparent; color: var(--danger); border: 1px solid rgba(224,85,85,0.3); }
   .btn-danger:hover { background: rgba(224,85,85,0.08); border-color: var(--danger); }
 
@@ -468,10 +493,7 @@ requireRole('admin');
           <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
           Cancel
         </a>
-        <button class="btn btn-primary" id="saveBtn" onclick="submitForm()">
-          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-          Save Changes
-        </button>
+        <button class="btn btn-primary" id="saveBtn" onclick="submitForm()">Save Changes</button>
       </div>
     </div>
 

@@ -567,22 +567,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   .btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 7px;
-    padding: 10px 20px;
-    border-radius: var(--radius);
+    padding: 12px 18px;
+    border-radius: 10px;
     font-family: var(--font);
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    border: none;
+    border: 1px solid transparent;
     transition: all 0.15s;
     text-decoration: none;
+    min-height: 42px;
   }
 
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover { background: #3d7ef5; }
-  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-  .btn-ghost:hover { color: var(--text); border-color: var(--text); }
+  .btn-primary {
+    width: 136px;
+    min-width: 136px;
+    height: 42px;
+    padding: 0 16px;
+    background: rgba(79,142,247,0.12);
+    color: var(--accent);
+    border-color: rgba(79,142,247,0.25);
+  }
+  .btn-primary:hover { background: rgba(79,142,247,0.18); }
+  .btn-primary:active { transform: scale(0.98); }
+
+  .btn-ghost {
+    min-width: 118px;
+    background: var(--surface2);
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .btn-ghost:hover { background: var(--border); }
 
   @media (max-width: 900px) {
     .form-grid { grid-template-columns: 1fr; }

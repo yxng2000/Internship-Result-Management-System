@@ -311,15 +311,24 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
   .main {
     margin-left: 220px;
     flex: 1;
-    padding: 32px 36px;
-    max-width: 1220px;
+    width: calc(100% - 220px);
+    min-height: 100vh;
+    padding: 34px 46px 56px;
+  }
+
+  .page-header,
+  .stats-row,
+  .content-grid {
+    width: min(1320px, 100%);
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .page-header {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    margin-bottom: 28px;
+    margin-bottom: 24px;
     gap: 16px;
   }
 
@@ -328,9 +337,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
 
   .stats-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-    margin-bottom: 28px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 24px;
   }
 
   .stat-card,
@@ -342,7 +351,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
   }
 
   .stat-card {
-    padding: 18px;
+    padding: 22px;
+    min-height: 118px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 
   .stat-label {
@@ -365,19 +378,21 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
 
   .content-grid {
     display: grid;
-    grid-template-columns: 1.25fr 0.95fr;
-    gap: 16px;
-    align-items: start;
+    grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+    gap: 20px;
+    align-items: stretch;
   }
 
   .panel {
-    padding: 20px;
+    padding: 24px;
+    min-height: 260px;
   }
 
   .panel-title {
-    font-size: 17px;
+    font-size: 19px;
     font-weight: 700;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
+    letter-spacing: -0.02em;
   }
 
   .panel-sub {
@@ -389,23 +404,31 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
 
   .quick-actions {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
   }
 
   .action-card {
     background: var(--surface2);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 18px;
+    border-radius: 14px;
+    padding: 22px;
     text-decoration: none;
     color: var(--text);
-    transition: all 0.15s ease;
-    min-height: 180px;
+    transition: all 0.18s ease;
+    min-height: 176px;
+    display: flex;
+    flex-direction: column;
   }
 
   .action-card:hover {
-    border-color: rgba(79, 142, 247, 0.38);
+    border-color: var(--accent);
+    background: rgba(79, 142, 247, 0.06);
+    box-shadow: 0 0 0 1px rgba(79, 142, 247, 0.18);
+    transform: translateY(-2px);
+  }
+
+  .action-card:active {
     transform: translateY(-1px);
   }
 
@@ -449,9 +472,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 12px 14px;
+    padding: 15px 16px;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 14px;
     background: var(--surface2);
   }
 
@@ -513,7 +536,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard') {
     background: rgba(255,255,255,0.01);
   }
 
-  @media (max-width: 1000px) {
+  @media (max-width: 1100px) {
+    .main { padding: 28px 28px 48px; }
+
     .content-grid {
       grid-template-columns: 1fr;
     }

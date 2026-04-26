@@ -2,6 +2,29 @@
 session_start();
 require_once 'auth.php';
 requireRole('admin');
+require_once 'config.php';
+
+$companySupervisorMap = [];
+$conn = getConnection();
+$result = $conn->query("
+    SELECT user_id, full_name, company_name
+    FROM users
+    WHERE role = 'supervisor'
+      AND status = 'active'
+      AND company_name IS NOT NULL
+      AND company_name <> ''
+    ORDER BY company_name ASC
+");
+
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $companySupervisorMap[$row['company_name']] = [
+            'id' => (int)$row['user_id'],
+            'name' => $row['full_name']
+        ];
+    }
+}
+$conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -359,12 +382,31 @@ requireRole('admin');
     border-top: 1px solid var(--border);
   }
 
-  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 20px; border-radius: var(--radius); font-family: var(--font); font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; text-decoration: none; }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover { background: #3d7ef5; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+
+  .btn-primary {
+    background: rgba(79,142,247,0.12);
+    color: var(--accent);
+    border-color: rgba(79,142,247,0.25);
+  }
+
+  .btn-primary:hover { background: rgba(79,142,247,0.18); }
   .btn-primary:active { transform: scale(0.98); }
-  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-  .btn-ghost:hover { color: var(--text); border-color: var(--text); }
+  .btn-ghost { background: var(--surface2); color: var(--text); border-color: var(--border); }
+  .btn-ghost:hover { background: var(--border); }
 
   /* Success overlay */
   .success-overlay {
@@ -596,10 +638,7 @@ requireRole('admin');
 <script>
   let students = {};
   
-  const companySupervisorMap = {
-    "Maybank": { id: 10, name: "Ms. Sarah Lim" },
-    "Intel Penang": { id: 9, name: "Mr. John Tan" }
-  };
+  const companySupervisorMap = <?= json_encode($companySupervisorMap, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 
   const params = new URLSearchParams(window.location.search);
   const preselectedStudentId = params.get("student_id");

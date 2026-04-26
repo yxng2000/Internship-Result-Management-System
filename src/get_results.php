@@ -20,7 +20,9 @@ $query = "
         s.full_name,
         s.programme,
         i.company_name,
-        i.status,
+        i.status AS db_status,
+        i.lecturer_id,
+        i.supervisor_id,
         lu.full_name AS lecturer_name,
         su.full_name AS supervisor_name,
 
@@ -65,9 +67,20 @@ if ($result && $result->num_rows > 0) {
         $l_score = $row['lecturer_score']  !== null ? (float)$row['lecturer_score']  : null;
         $s_score = $row['supervisor_score'] !== null ? (float)$row['supervisor_score'] : null;
 
-        // Final score = average of both; only available when both submitted
+        $isUnassigned = empty($row['lecturer_id'])
+            || empty($row['supervisor_id'])
+            || empty($row['company_name']);
+
+        $displayStatus = 'pending';
+        if ($isUnassigned) {
+            $displayStatus = 'unassigned';
+        } elseif ($l_score !== null && $s_score !== null) {
+            $displayStatus = 'completed';
+        }
+
+        // Final score = average of both; only available when both submitted and record is fully assigned
         $final_score = null;
-        if ($l_score !== null && $s_score !== null) {
+        if ($displayStatus === 'completed') {
             $final_score = round(($l_score + $s_score) / 2, 2);
         }
 
@@ -76,12 +89,12 @@ if ($result && $result->num_rows > 0) {
             'student_id'       => $row['student_id'],
             'full_name'        => $row['full_name'],
             'programme'        => $row['programme'],
-            'company_name'     => $row['company_name'],
-            'status'           => $row['status'],
+            'company_name'     => $displayStatus === 'unassigned' ? null : $row['company_name'],
+            'status'           => $displayStatus,
 
             // Names
-            'lecturer_name'    => $row['lecturer_name'],
-            'supervisor_name'  => $row['supervisor_name'],
+            'lecturer_name'    => $displayStatus === 'unassigned' ? null : $row['lecturer_name'],
+            'supervisor_name'  => $displayStatus === 'unassigned' ? null : $row['supervisor_name'],
 
             // Final averaged score (null until both submit)
             'total_score'      => $final_score,

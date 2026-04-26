@@ -213,10 +213,11 @@ $avatar = get_initials($full_name);
 
   /* ===== MAIN ===== */
   .main {
-    margin-left: 220px;
-    flex: 1;
-    padding: 32px 36px;
-    max-width: 1220px;
+    margin-left: 280px !important;
+    flex: 0 0 auto !important;
+    padding: 32px 36px !important;
+    width: 1250px !important;
+    max-width: calc(100vw - 340px) !important;
   }
 
   .page-header {
@@ -289,8 +290,8 @@ $avatar = get_initials($full_name);
   .content-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 18px;
-    margin-bottom: 18px;
+    gap: 20px;
+    margin-bottom: 20px;
     align-items: stretch;
   }
 
@@ -408,6 +409,8 @@ $avatar = get_initials($full_name);
     .main {
       padding: 24px 20px;
       margin-left: 0;
+      width: 100%;
+      max-width: none;
     }
 
   }

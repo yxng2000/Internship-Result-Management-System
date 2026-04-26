@@ -248,6 +248,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_user'])) {
                         }
                         $stmt->execute();
                         $stmt->close();
+                        if ($targetUser['status'] === 'active' && $status === 'inactive') {
+                            $stmt = $conn->prepare("
+                                DELETE a
+                                FROM assessments a
+                                INNER JOIN internships i ON a.internship_id = i.internship_id
+                                WHERE i.lecturer_id = ?
+                                  AND i.status = 'pending'
+                            ");
+                            $stmt->bind_param("i", $user_id);
+                            $stmt->execute();
+                            $stmt->close();
+
+                            $stmt = $conn->prepare("
+                                UPDATE internships
+                                SET lecturer_id = NULL,
+                                    supervisor_id = NULL,
+                                    company_name = NULL,
+                                    industry = NULL,
+                                    start_date = NULL,
+                                    end_date = NULL,
+                                    notes = '',
+                                    status = 'unassigned'
+                                WHERE lecturer_id = ?
+                                  AND status = 'pending'
+                            "
+                            );
+                            $stmt->bind_param("i", $user_id);
+                            $stmt->execute();
+                            $stmt->close();
+                        }
+
 
                     } elseif ($role === 'supervisor') {
                         if ($password !== '') {
@@ -268,6 +299,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_user'])) {
                         }
                         $stmt->execute();
                         $stmt->close();
+                        if ($targetUser['status'] === 'active' && $status === 'inactive') {
+                            $stmt = $conn->prepare("
+                                DELETE a
+                                FROM assessments a
+                                INNER JOIN internships i ON a.internship_id = i.internship_id
+                                WHERE i.supervisor_id = ?
+                                  AND i.status = 'pending'
+                            ");
+                            $stmt->bind_param("i", $user_id);
+                            $stmt->execute();
+                            $stmt->close();
+
+                            $stmt = $conn->prepare("
+                                UPDATE internships
+                                SET lecturer_id = NULL,
+                                    supervisor_id = NULL,
+                                    company_name = NULL,
+                                    industry = NULL,
+                                    start_date = NULL,
+                                    end_date = NULL,
+                                    notes = '',
+                                    status = 'unassigned'
+                                WHERE supervisor_id = ?
+                                  AND status = 'pending'
+                            "
+                            );
+                            $stmt->bind_param("i", $user_id);
+                            $stmt->execute();
+                            $stmt->close();
+                        }
+
 
                     } elseif ($role === 'student') {
                         $student_id = $targetUser['student_id'] ?? '';
@@ -412,7 +474,36 @@ $sql = "
         email,
         student_id,
         status,
-        created_at
+        created_at,
+        (
+            SELECT i.status
+            FROM internships i
+            WHERE i.student_id = users.student_id
+            LIMIT 1
+        ) AS student_internship_status,
+        (
+            SELECT COUNT(*)
+            FROM internships i
+            WHERE i.student_id = users.student_id
+              AND i.status = 'pending'
+              AND (
+                    i.lecturer_id IS NOT NULL
+                 OR i.supervisor_id IS NOT NULL
+                 OR i.company_name IS NOT NULL
+              )
+        ) AS student_assigned_pending_count,
+        (
+            SELECT COUNT(*)
+            FROM internships i
+            WHERE i.lecturer_id = users.user_id
+              AND i.status = 'pending'
+        ) AS lecturer_assigned_pending_count,
+        (
+            SELECT COUNT(*)
+            FROM internships i
+            WHERE i.supervisor_id = users.user_id
+              AND i.status = 'pending'
+        ) AS supervisor_assigned_pending_count
     FROM users
     ORDER BY
         CASE role
@@ -679,18 +770,23 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
     .btn {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      padding: 9px 14px;
+      justify-content: center;
+      gap: 8px;
+      height: 42px;
+      min-width: 110px;
+      padding: 0 16px;
       border-radius: var(--radius);
       font-family: var(--font);
-      font-size: 12.5px;
+      font-size: 13px;
       font-weight: 600;
+      line-height: 1;
       cursor: pointer;
       border: 1px solid var(--border);
-      transition: all 0.15s;
+      transition: all 0.15s ease;
       text-decoration: none;
       color: var(--text);
       background: var(--surface2);
+      white-space: nowrap;
     }
 
     .btn:hover { background: var(--border); }
@@ -836,7 +932,19 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
     .search-box:focus,
     .filter-select:focus { border-color: rgba(79,142,247,0.45); }
 
-    .btn-secondary { cursor: pointer; min-width: 100px; }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 110px;
+      height: 42px;
+      padding: 0 16px;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1;
+      cursor: pointer;
+      white-space: nowrap;
+    }
 
     .table-wrap {
       overflow: hidden;
@@ -878,20 +986,27 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
 
     .role-badge,
     .status-badge {
-      display: inline-block;
-      padding: 5px 11px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 88px;
+      height: 28px;
+      padding: 0 12px;
       border-radius: 999px;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 600;
-      letter-spacing: 0.03em;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      border: 1px solid transparent;
+      white-space: nowrap;
     }
 
-    .role-badge.student { background: rgba(79,142,247,0.12); color: var(--accent); }
-    .role-badge.lecturer { background: rgba(240,160,48,0.12); color: var(--warning); }
-    .role-badge.supervisor { background: rgba(255,143,163,0.12); color: var(--danger-soft); }
-    .role-badge.admin { background: rgba(124,106,247,0.14); color: var(--accent2); }
-    .status-badge.active { background: rgba(52,201,123,0.12); color: var(--success); }
-    .status-badge.inactive { background: rgba(224,85,85,0.12); color: var(--danger-soft); }
+    .role-badge.student { background: rgba(79,142,247,0.12); color: var(--accent); border-color: rgba(79,142,247,0.16); }
+    .role-badge.lecturer { background: rgba(240,160,48,0.12); color: var(--warning); border-color: rgba(240,160,48,0.16); }
+    .role-badge.supervisor { background: rgba(255,143,163,0.12); color: var(--danger-soft); border-color: rgba(255,143,163,0.16); }
+    .role-badge.admin { background: rgba(124,106,247,0.14); color: var(--accent2); border-color: rgba(124,106,247,0.16); }
+    .status-badge.active { background: rgba(52,201,123,0.12); color: var(--success); border-color: rgba(52,201,123,0.16); }
+    .status-badge.inactive { background: rgba(224,85,85,0.12); color: var(--danger-soft); border-color: rgba(224,85,85,0.16); }
 
     .actions {
       display: flex;
@@ -907,11 +1022,16 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
       background: var(--surface2);
       color: var(--text);
       cursor: pointer;
-      transition: 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
       font-size: 13px;
+      line-height: 1;
     }
 
-    .icon-btn:hover { background: var(--border); }
+    .icon-btn:hover { background: var(--border); color: var(--text); border-color: var(--border); }
+    .icon-btn.danger:hover { color: var(--danger); border-color: var(--danger); background: rgba(224,85,85,0.08); }
 
     .modal-overlay {
       position: fixed;
@@ -1055,13 +1175,19 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
 
     .modal-cancel-btn,
     .modal-save-btn {
-      border: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 136px;
+      height: 42px;
       border-radius: 10px;
-      padding: 12px 18px;
+      padding: 0 16px;
       font-size: 13px;
       font-weight: 600;
+      line-height: 1;
       cursor: pointer;
       font-family: var(--font);
+      white-space: nowrap;
     }
 
     .modal-cancel-btn {
@@ -1280,16 +1406,29 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
                       data-company-name="<?= htmlspecialchars($user['company_name'] ?? '') ?>"
                       data-username="<?= htmlspecialchars($user['username']) ?>"
                       data-student-id="<?= htmlspecialchars($user['student_id'] ?? '') ?>"
+                      data-student-internship-status="<?= htmlspecialchars($user['student_internship_status'] ?? '') ?>"
+                      data-student-assigned-pending-count="<?= (int)($user['student_assigned_pending_count'] ?? 0) ?>"
+                      data-lecturer-assigned-pending-count="<?= (int)($user['lecturer_assigned_pending_count'] ?? 0) ?>"
+                      data-supervisor-assigned-pending-count="<?= (int)($user['supervisor_assigned_pending_count'] ?? 0) ?>"
                     >✎</button>
                     <?php if (!in_array($user['role'], ['admin', 'supervisor'], true)): ?>
                       <button
-                        class="icon-btn"
+                        class="icon-btn danger"
                         type="button"
+                        title="Delete"
                         onclick="openDeleteModal(this)"
                         data-user-id="<?= (int)$user['user_id'] ?>"
                         data-full-name="<?= htmlspecialchars($user['full_name']) ?>"
                         data-role="<?= htmlspecialchars($user['role']) ?>"
-                      >🗑</button>
+                      >
+                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <polyline points="3 6 5 6 21 6"/>
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                          <path d="M10 11v6"/>
+                          <path d="M14 11v6"/>
+                          <path d="M9 6V4h6v2"/>
+                        </svg>
+                      </button>
                     <?php endif; ?>
                   </div>
                 </td>
@@ -1480,6 +1619,11 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
   const shouldOpenEditModal = <?= $openEditModalAfterSubmit ? 'true' : 'false' ?>;
   const editModalPostedData = <?= json_encode($editModalPostedData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
   const editModalOriginalData = <?= json_encode($editModalOriginalData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+  let currentEditOriginalStatus = '';
+  let currentEditStudentInternshipStatus = '';
+  let currentEditStudentAssignedPendingCount = 0;
+  let currentEditLecturerAssignedPendingCount = 0;
+  let currentEditSupervisorAssignedPendingCount = 0;
 
   function removeEditModalAlert() {
     const existing = document.getElementById('editModalAlert');
@@ -1622,6 +1766,11 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
     document.getElementById("edit_role").value = role ? role.charAt(0).toUpperCase() + role.slice(1) : "";
     document.getElementById("edit_email").value = button.dataset.email || "";
     document.getElementById("edit_status").value = button.dataset.status || "active";
+    currentEditOriginalStatus = button.dataset.status || "";
+    currentEditStudentInternshipStatus = button.dataset.studentInternshipStatus || "";
+    currentEditStudentAssignedPendingCount = parseInt(button.dataset.studentAssignedPendingCount || "0", 10);
+    currentEditLecturerAssignedPendingCount = parseInt(button.dataset.lecturerAssignedPendingCount || "0", 10);
+    currentEditSupervisorAssignedPendingCount = parseInt(button.dataset.supervisorAssignedPendingCount || "0", 10);
 
     document.getElementById("edit_password").value = "";
     document.getElementById("edit_confirm_password").value = "";
@@ -1662,16 +1811,49 @@ function writeActivityLog($conn, $actionType, $targetType, $targetId, $title, $d
       const role = document.getElementById("edit_role").value.toLowerCase();
       const status = document.getElementById("edit_status").value;
 
-      if (role === "student" && status === "inactive") {
-        const ok = confirm(
-          "Warning: If this student has a pending internship record, the record and any submitted assessment will be cleared. Continue?"
-        );
+      if (status === "inactive" && currentEditOriginalStatus === "active") {
+        if (role === "student") {
+          if (currentEditStudentInternshipStatus === "completed") {
+            e.preventDefault();
+            showEditModalInlineAlert('Completed student cannot be deactivated.');
+            return;
+          }
 
-        if (!ok) {
-          e.preventDefault();
-          return;
+          if (currentEditStudentAssignedPendingCount > 0) {
+            const ok = confirm(
+              "Warning: This student has an assigned pending internship. The internship details and any submitted assessment will be cleared, and the record will return to unassigned. Continue?"
+            );
+
+            if (!ok) {
+              e.preventDefault();
+              return;
+            }
+          }
+        }
+
+        if (role === "lecturer" && currentEditLecturerAssignedPendingCount > 0) {
+          const ok = confirm(
+            "Warning: This lecturer has assigned pending internship records. These records and any submitted assessments will be cleared and returned to unassigned. Continue?"
+          );
+
+          if (!ok) {
+            e.preventDefault();
+            return;
+          }
+        }
+
+        if (role === "supervisor" && currentEditSupervisorAssignedPendingCount > 0) {
+          const ok = confirm(
+            "Warning: This supervisor has assigned pending internship records. These records, company details, and any submitted assessments will be cleared and returned to unassigned. Continue?"
+          );
+
+          if (!ok) {
+            e.preventDefault();
+            return;
+          }
         }
       }
+
 
     const passwordBox = document.getElementById('passwordFields');
     const password = document.getElementById('edit_password').value.trim();

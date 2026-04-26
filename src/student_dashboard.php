@@ -154,7 +154,8 @@ $status_class  = 'status-' . ($status ?: 'unassigned');
   .logout-btn:hover { background: rgba(224, 85, 85, 0.08); border-color: #e05555; color: #ff7b7b; }
 
   /* Main Content */
-  .main { margin-left: 220px; flex: 1; padding: 32px 36px; max-width: 1220px; }
+  .main { margin-left: 220px; flex: 1; width: calc(100% - 220px); padding: 36px 56px; max-width: none; }
+  .page-header, .stats-row, .content-grid { max-width: 1460px; margin-left: auto; margin-right: auto; }
   .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 28px; gap: 16px; }
   .page-title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; }
   .page-sub { font-size: 13px; color: var(--muted); }
@@ -165,12 +166,12 @@ $status_class  = 'status-' . ($status ?: 'unassigned');
   .status-unassigned { background: rgba(107,112,128,0.12); color: var(--muted); }
 
   /* Dashboard Cards */
-  .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
+  .stats-row { display: grid; grid-template-columns: repeat(5, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
   .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
   .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
   .stat-value { font-size: 18px; font-weight: 700; font-family: var(--mono); }
 
-  .content-grid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 18px; }
+  .content-grid { display: grid; grid-template-columns: minmax(620px, 1.35fr) minmax(420px, 0.85fr); gap: 24px; align-items: stretch; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
   .card-title { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
   
@@ -182,10 +183,20 @@ $status_class  = 'status-' . ($status ?: 'unassigned');
   .notes-box { margin-top: 18px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface2); }
   .notes-text { color: var(--text); font-size: 14px; line-height: 1.6; }
 
+  .student-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+  .student-name { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+  .student-meta { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .student-id { font-family: var(--mono); color: var(--accent); font-size: 12px; }
+  .mini-avatar { width: 46px; height: 46px; border-radius: 14px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .action-list { display: grid; gap: 14px; }
+  .action-card { padding: 18px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; text-decoration: none; color: inherit; display: block; transition: all 0.18s ease; }
+  .action-card:hover { border-color: var(--accent); transform: translateY(-2px); background: #222530; }
+  .action-title { font-weight: 700; margin-bottom: 8px; }
+  .action-sub { font-size: 13px; color: var(--muted); line-height: 1.5; }
   @media (max-width: 980px) {
     .stats-row { grid-template-columns: repeat(2, 1fr); }
     .content-grid, .detail-grid { grid-template-columns: 1fr; }
-    .main { padding: 24px 20px; }
+    .main { margin-left: 220px; width: calc(100% - 220px); padding: 24px 20px; }
   }
 </style>
 </head>
@@ -242,11 +253,24 @@ $status_class  = 'status-' . ($status ?: 'unassigned');
   <section class="content-grid">
     <div class="card">
       <div class="card-title">Student Profile</div>
-      <div style="font-size:24px; font-weight:700; margin-bottom:8px;"><?= e($full_name) ?></div>
-      <div style="font-size:13px; color:var(--muted); margin-bottom:6px;"><?= e($programme) ?></div>
-      <div style="font-family:var(--mono); color:var(--accent); font-size:12px; margin-bottom:12px;"><?= e($student_id) ?></div>
+      <div class="student-head">
+        <div>
+          <div class="student-name"><?= e($full_name) ?></div>
+          <div class="student-meta"><?= e($programme) ?></div>
+          <div class="student-id"><?= e($student_id) ?></div>
+        </div>
+        <div class="mini-avatar"><?= e($avatar) ?></div>
+      </div>
 
       <div class="detail-grid">
+        <div class="field">
+          <div class="field-label">Programme</div>
+          <div class="field-value"><?= e($programme) ?></div>
+        </div>
+        <div class="field">
+          <div class="field-label">Student Email</div>
+          <div class="field-value"><?= e($student_email) ?></div>
+        </div>
         <div class="field">
           <div class="field-label">Industry</div>
           <div class="field-value"><?= e($industry ?: 'Not available') ?></div>
@@ -254,18 +278,6 @@ $status_class  = 'status-' . ($status ?: 'unassigned');
         <div class="field">
           <div class="field-label">Internship Period</div>
           <div class="field-value"><?= e($period_text) ?></div>
-        </div>
-        <div class="field">
-          <div class="field-label">Company</div>
-          <div class="field-value"><?= e($company_name ?: 'Not assigned') ?></div>
-        </div>
-        <div class="field">
-          <div class="field-label">Lecturer</div>
-          <div class="field-value"><?= e($lecturer_name) ?></div>
-        </div>
-        <div class="field">
-          <div class="field-label">Supervisor</div>
-          <div class="field-value"><?= e($supervisor_name) ?></div>
         </div>
       </div>
 
@@ -277,14 +289,14 @@ $status_class  = 'status-' . ($status ?: 'unassigned');
     
     <div class="card">
       <div class="card-title">Quick Actions</div>
-      <div style="display:grid; gap:14px;">
-        <a href="student_view_internship.php" style="padding:18px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; text-decoration:none; color:inherit; display:block;">
-          <div style="font-weight:700; margin-bottom:8px;">View Internship</div>
-          <div style="font-size:13px; color:var(--muted);">Check company details and placement remarks.</div>
+      <div class="action-list">
+        <a href="student_view_internship.php" class="action-card">
+          <div class="action-title">View Internship</div>
+          <div class="action-sub">Open full placement details, company information, internship period, and remarks.</div>
         </a>
-        <a href="student_view_result.php" style="padding:18px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; text-decoration:none; color:inherit; display:block;">
-          <div style="font-weight:700; margin-bottom:8px;">View Result</div>
-          <div style="font-size:13px; color:var(--muted);">See evaluation scores and assessor feedback.</div>
+        <a href="student_view_result.php" class="action-card">
+          <div class="action-title">View Result</div>
+          <div class="action-sub">Check evaluation scores, final grade, and assessor feedback.</div>
         </a>
       </div>
     </div>
