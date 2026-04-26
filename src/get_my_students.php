@@ -22,6 +22,8 @@ $conn = getConnection();
 $query = "
     SELECT 
         i.internship_id, i.company_name, i.status AS internship_status,
+        i.end_date,
+        i.start_date,
         s.student_id, s.full_name, s.programme,
         a.total_score, a.undertaking_tasks, a.health_safety, 
         a.theoretical_knowledge, a.report_presentation, 
@@ -47,7 +49,8 @@ while ($row = $result->fetch_assoc()) {
         'full_name'     => $row['full_name'],
         'programme'     => $row['programme'],
         'company_name'  => $row['company_name'],
-        'total_score'   => $row['total_score']
+        'total_score'   => $row['total_score'],
+        'end_date'      => $row['end_date'],
     ];
 
     // If the assessor has already graded them, bundle the scores to pre-fill the form

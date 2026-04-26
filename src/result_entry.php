@@ -240,12 +240,20 @@ $avatar = get_initials($full_name);
         <div class="info-pill-label">Programme</div>
         <div class="info-pill-value" id="infoProgramme">—</div>
       </div>
+      <div class="info-pill">
+        <div class="info-pill-label">Ends</div>
+        <div class="info-pill-value" id="infoEndDate">—</div>
+      </div>
     </div>
   </div>
 
   <div class="assessed-warning" id="assessedWarning">
     <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     This student already has a submitted result. Submitting again will overwrite the previous record.
+  </div>
+  <div class="assessed-warning" id="notEndedWarning" style="background:rgba(224,85,85,0.07); border-color:rgba(224,85,85,0.2); color:var(--danger);">
+    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Internship has not ended yet (ends <span id="warningEndDate">—</span>). You cannot submit until after the end date.
   </div>
 
   <div class="form-card" id="formCard" style="display:none;">
@@ -485,39 +493,59 @@ $avatar = get_initials($full_name);
     return name.split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase();
   }
 
-  function onStudentChange() {
+function onStudentChange() {
     const iid = document.getElementById('studentSelect').value;
-    const formCard  = document.getElementById('formCard');
+    const formCard   = document.getElementById('formCard');
     const emptyState = document.getElementById('emptyState');
-    const infoCard  = document.getElementById('studentInfoCard');
-    const warning   = document.getElementById('assessedWarning');
+    const infoCard   = document.getElementById('studentInfoCard');
+    const warning    = document.getElementById('assessedWarning');
+    const notEndedWarning = document.getElementById('notEndedWarning');
+    const submitBtn  = document.getElementById('submitBtn');
 
     if (!iid) {
       formCard.style.display = 'none';
       emptyState.style.display = 'block';
       infoCard.classList.remove('visible');
       warning.classList.remove('visible');
+      notEndedWarning.classList.remove('visible');
       return;
     }
 
     const s = students[iid];
     selectedInternshipId = iid;
 
+    const today = new Date().toISOString().split('T')[0];
+    const endDate = s.end_date || null;
+
+    // Populate info card
     document.getElementById('infoAvatar').textContent = getInitials(s.full_name);
     document.getElementById('infoName').textContent = s.full_name;
     document.getElementById('infoMeta').textContent = `${s.student_id} · ${s.programme}`;
     document.getElementById('infoCompany').textContent = s.company_name || '—';
     document.getElementById('infoProgramme').textContent = s.programme;
+    document.getElementById('infoEndDate').textContent = endDate
+      ? new Date(endDate + 'T00:00:00').toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+      : 'Not set';
     infoCard.classList.add('visible');
 
-    const totalCheck = safeNum(s.total_score);
-
-    if (totalCheck !== null) {
+    // Already-assessed warning
+    if (safeNum(s.total_score) !== null) {
       warning.classList.add('visible');
       prefillScores(s);
     } else {
       warning.classList.remove('visible');
       resetForm();
+    }
+
+    // Not-ended warning + disable submit
+    if (endDate && endDate > today) {
+      document.getElementById('warningEndDate').textContent =
+        new Date(endDate + 'T00:00:00').toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+      notEndedWarning.classList.add('visible');
+      submitBtn.disabled = true;
+    } else {
+      notEndedWarning.classList.remove('visible');
+      submitBtn.disabled = false;
     }
 
     emptyState.style.display = 'none';
