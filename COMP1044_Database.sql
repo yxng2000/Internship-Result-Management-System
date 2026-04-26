@@ -158,8 +158,8 @@ INSERT INTO users (username, password, full_name, role, programme, company_name,
 -- 6 unassigned, 4 pending
 INSERT INTO internships (student_id, lecturer_id, supervisor_id, company_name, industry, start_date, end_date, status, notes) VALUES
 ('S0021', 2,  9,  'Intel Penang', 'Technology / IT',   '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0022', 6, 10,  'Maybank',      'Finance / Banking', '2026-06-01', '2026-10-31', 'pending',    ''),
-('S0023', 4,  9,  'Intel Penang', 'Engineering',       '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0022', 7, 10,  'Maybank',      'Finance / Banking', '2026-06-01', '2026-10-31', 'pending',    ''),
+('S0023', 5,  9,  'Intel Penang', 'Engineering',       '2026-06-01', '2026-10-31', 'pending',    ''),
 ('S0024', 3,  9,  'Intel Penang', 'Technology / IT',   '2026-06-01', '2026-10-31', 'pending',    ''),
 ('S0025', NULL, NULL, NULL,       NULL,                NULL,         NULL,         'unassigned', ''),
 ('S0026', NULL, NULL, NULL,       NULL,                NULL,         NULL,         'unassigned', ''),
