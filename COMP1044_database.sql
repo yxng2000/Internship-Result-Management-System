@@ -113,10 +113,10 @@ INSERT INTO students (student_id, full_name, programme, email, status) VALUES
 ('S0023', 'Khairul Hisham',   'Engineering',      'khairul@student.edu.my', 'active'),
 ('S0024', 'Siti Hajar',       'Computer Science', 'siti@student.edu.my', 'active'),
 ('S0025', 'Lee Wei Jian',     'Arts and Design',  'lee@student.edu.my', 'active'),
-('S0026', 'Priya Rajan',      'Finance',          'priya@student.edu.my', 'active'),
+('S0026', 'Priya Rajan',      'Computer Science', 'priya@student.edu.my', 'active'),
 ('S0027', 'Hafizuddin Malik', 'Computer Science', 'hafiz@student.edu.my', 'active'),
-('S0028', 'Amirah Zainudin',  'Arts and Design',  'amirah@student.edu.my', 'active'),
-('S0029', 'Tan Jia Hui',      'Computer Science', 'tan@student.edu.my', 'active'),
+('S0028', 'Amirah Zainudin',  'Arts and Design',  'amirah@student.edu.my', 'inactive'),
+('S0029', 'Tan Jia Hui',      'Finance',          'tan@student.edu.my', 'active'),
 ('S0030', 'Muhammad Faris',   'Engineering',      'faris@student.edu.my', 'active');
 
 -- Users
@@ -148,10 +148,10 @@ INSERT INTO users (username, password, full_name, role, programme, company_name,
 ('S0023', MD5('stud0023'), 'Khairul Hisham',   'student', 'Engineering',      NULL, 'khairul@student.irms.com', 'S0023', 'active'),
 ('S0024', MD5('stud0024'), 'Siti Hajar',       'student', 'Computer Science', NULL, 'siti@student.irms.com',    'S0024', 'active'),
 ('S0025', MD5('stud0025'), 'Lee Wei Jian',     'student', 'Arts and Design',  NULL, 'lee@student.irms.com',     'S0025', 'active'),
-('S0026', MD5('stud0026'), 'Priya Rajan',      'student', 'Finance',          NULL, 'priya@student.irms.com',   'S0026', 'active'),
+('S0026', MD5('stud0026'), 'Priya Rajan',      'student', 'Computer Science', NULL, 'priya@student.irms.com',   'S0026', 'active'),
 ('S0027', MD5('stud0027'), 'Hafizuddin Malik', 'student', 'Computer Science', NULL, 'hafiz@student.irms.com',   'S0027', 'active'),
-('S0028', MD5('stud0028'), 'Amirah Zainudin',  'student', 'Arts and Design',  NULL, 'amirah@student.irms.com',  'S0028', 'active'),
-('S0029', MD5('stud0029'), 'Tan Jia Hui',      'student', 'Computer Science', NULL, 'tan@student.irms.com',     'S0029', 'active'),
+('S0028', MD5('stud0028'), 'Amirah Zainudin',  'student', 'Arts and Design',  NULL, 'amirah@student.irms.com',  'S0028', 'inactive'),
+('S0029', MD5('stud0029'), 'Tan Jia Hui',      'student', 'Finance',          NULL, 'tan@student.irms.com',     'S0029', 'active'),
 ('S0030', MD5('stud0030'), 'Muhammad Faris',   'student', 'Engineering',      NULL, 'faris@student.irms.com',   'S0030', 'active');
 
 -- Internships
@@ -161,13 +161,13 @@ INSERT INTO internships (student_id, lecturer_id, supervisor_id, company_name, i
 ('S0021', 2,  9,  'Intel Penang', 'Technology / IT',   '2025-11-01', '2026-03-31', 'completed',  'Completed demo record. Both assessor results are available.'),
 
 -- Pending with lecturer score only: supervisor can submit during demo to turn it completed.
-('S0022', 7, 10,  'Maybank',      'Finance / Banking', '2025-11-01', '2026-03-31', 'pending',    'Pending demo record. Lecturer has submitted; supervisor result is still missing.'),
+('S0022', 7, 9,   'Intel Penang', 'Finance / Banking', '2025-11-01', '2026-03-31', 'pending',    'Pending demo record. Lecturer has submitted; supervisor result is still missing.'),
 
 -- Pending with no assessment yet: first result submission keeps it pending.
 ('S0023', 5,  9,  'Intel Penang', 'Engineering',       '2025-11-01', '2026-03-31', 'pending',    'Pending demo record. No assessment has been submitted yet.'),
 
 -- Pending with supervisor score only: lecturer can submit during demo to turn it completed.
-('S0024', 2,  9,  'Intel Penang', 'Technology / IT',   '2025-11-01', '2026-03-31', 'pending',    'Pending demo record. Supervisor has submitted; lecturer result is still missing.'),
+('S0024', 2,  9,  'Maybank',      'Technology / IT',   '2025-11-01', '2026-03-31', 'pending',    'Pending demo record. Supervisor has submitted; lecturer result is still missing.'),
 
 -- Future pending: shows the not-ended warning in result entry and prevents assessment.
 ('S0025', 4, 10,  'Maybank',      'Education',         '2026-06-01', '2026-10-31', 'pending',    'Future internship demo record. Assessment should be blocked until the end date passes.'),
@@ -203,8 +203,7 @@ INSERT INTO assessments (
 
 -- Activity Logs
 -- Seeded so the Admin Dashboard can immediately demonstrate recent activity querying.
-INSERT INTO activity_logs (action_type, target_type, target_id, title, description, link_url, created_at) VALUES
-('assign', 'internship', 2, 'Student assigned for internship', 'Nurul Aina was assigned to Maybank. Lecturer: Prof. Brenda Lim, Supervisor: Ms. Sarah Lim.', 'edit_internship.php?id=2', '2026-04-20 09:15:00'),
-('edit',   'internship', 4, 'Internship record updated', 'Siti Hajar internship details were updated. Company: Intel Penang. Status: pending.', 'edit_internship.php?id=4', '2026-04-21 11:30:00'),
-('add',    'user',       0, 'Demo-ready data prepared', 'The database was prepared with completed, pending, and unassigned records for system testing.', 'user_management.php', '2026-04-22 10:00:00'),
-('edit',   'result',     1, 'Assessment result available', 'Ahmad Zulkifli now has both lecturer and supervisor assessment records.', 'view_results.php', '2026-04-23 14:45:00');
+INSERT INTO activity_logs 
+(action_type, target_type, target_id, title, description, link_url, created_at)
+VALUES
+('system', 'database', 0, 'Demo-ready data prepared', 'The database was prepared with completed, pending, future, inactive, and unassigned records for system testing.', 'admin_dashboard.php', NOW());
