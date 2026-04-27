@@ -15,7 +15,6 @@ $my_type = ($user_role === 'lecturer') ? 'lecturer' : 'supervisor';
 $other_type = ($user_role === 'lecturer') ? 'supervisor' : 'lecturer';
 $conn = getConnection();
 
-// UPDATED SQL: Now joins the table TWICE to get both your score AND the partner's score
 $sql = "
     SELECT
         s.student_id, s.full_name, s.programme, i.internship_id, i.company_name,

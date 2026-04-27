@@ -17,7 +17,7 @@ if ($user_id > 0) {
 
     if ($row && !empty($row['full_name'])) {
         $userName = $row['full_name'];
-        $_SESSION['full_name'] = $row['full_name']; // 顺便把 session 也更新
+        $_SESSION['full_name'] = $row['full_name']; 
     }
 }
 
