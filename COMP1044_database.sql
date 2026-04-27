@@ -1,16 +1,8 @@
--- ============================================================
---  COMP1044 — Internship Result Management System
---  Updated for lecturer + supervisor separation
---  Database: comp1044_irms
--- ============================================================
-
 DROP DATABASE IF EXISTS comp1044_irms;
 CREATE DATABASE comp1044_irms;
 USE comp1044_irms;
 
--- ------------------------------------------------------------
 -- 1. Students
--- ------------------------------------------------------------
 CREATE TABLE students (
     student_id  VARCHAR(10)  PRIMARY KEY,
     full_name   VARCHAR(100) NOT NULL,
@@ -20,11 +12,9 @@ CREATE TABLE students (
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- ------------------------------------------------------------
 -- 2. Users
---    - lecturer: belongs to programme
---    - supervisor: belongs to company
--- ------------------------------------------------------------
+--lecturer: belongs to programme
+--supervisor: belongs to company
 CREATE TABLE users (
     user_id       INT AUTO_INCREMENT PRIMARY KEY,
     username      VARCHAR(50)  NOT NULL UNIQUE,
@@ -41,10 +31,8 @@ CREATE TABLE users (
     FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE SET NULL
 );
 
--- ------------------------------------------------------------
+
 -- 3. Internships
---    Split old assessor_id into lecturer_id + supervisor_id
--- ------------------------------------------------------------
 CREATE TABLE internships (
     internship_id   INT AUTO_INCREMENT PRIMARY KEY,
     student_id      VARCHAR(10) NOT NULL UNIQUE,
@@ -64,9 +52,7 @@ CREATE TABLE internships (
     FOREIGN KEY (supervisor_id) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
--- ------------------------------------------------------------
 -- 4. Assessment Results
--- ------------------------------------------------------------
 CREATE TABLE assessments (
     assessment_id               INT AUTO_INCREMENT PRIMARY KEY,
     internship_id               INT NOT NULL,
@@ -88,9 +74,7 @@ CREATE TABLE assessments (
     FOREIGN KEY (internship_id) REFERENCES internships(internship_id) ON DELETE CASCADE
 );
 
--- ------------------------------------------------------------
 -- 5. Activity Logs
--- ------------------------------------------------------------
 CREATE TABLE activity_logs (
     log_id       INT AUTO_INCREMENT PRIMARY KEY,
     action_type  VARCHAR(50) NOT NULL,
@@ -102,10 +86,8 @@ CREATE TABLE activity_logs (
     created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- ------------------------------------------------------------
--- Sample Data
--- ------------------------------------------------------------
 
+-- Sample Data
 -- Students (10 only)
 INSERT INTO students (student_id, full_name, programme, email, status) VALUES
 ('S0021', 'Ahmad Zulkifli',   'Computer Science', 'ahmad@student.edu.my', 'active'),
