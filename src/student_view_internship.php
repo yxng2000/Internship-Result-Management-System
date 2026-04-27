@@ -240,7 +240,6 @@ $avatar = get_initials($full_name);
     margin-top: 4px;
   }
 
-  /* 更大但低调的 status */
   .status-panel {
     min-width: 300px;
     background: linear-gradient(180deg, rgba(22,24,31,0.98), rgba(18,20,27,0.98));

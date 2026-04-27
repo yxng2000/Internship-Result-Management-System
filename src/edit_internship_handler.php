@@ -37,9 +37,6 @@ function convertDate($d) {
     return false;
 }
 
-/* ============================================================
-   GET -> Load one internship record
-   ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
@@ -164,9 +161,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     ]);
 }
 
-/* ============================================================
-   POST -> Update internship record + write activity log
-   ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $raw = file_get_contents('php://input');
     $json = json_decode($raw, true);

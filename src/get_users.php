@@ -1,9 +1,4 @@
 <?php
-// ============================================================
-// get_users.php
-// Return user list as JSON
-// Supports search, role filter, status filter
-// ============================================================
 
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -87,7 +82,6 @@ while ($row = $result->fetch_assoc()) {
     ];
 }
 
-// ---------- Summary counts ----------
 $totalUsers = 0;
 $studentCount = 0;
 $assessorCount = 0;

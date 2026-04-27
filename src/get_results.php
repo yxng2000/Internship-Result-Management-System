@@ -1,11 +1,4 @@
 <?php
-// ============================================================
-//  get_results.php  (Admin view)
-//  Returns all students with:
-//    - lecturer assessment status + their total
-//    - supervisor assessment status + their total
-//    - averaged final_score (only when BOTH have submitted)
-// ============================================================
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 header('Content-Type: application/json');

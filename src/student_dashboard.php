@@ -1,23 +1,17 @@
 <?php
-require_once 'auth.php'; //
-requireRole('student'); //
-require_once 'config.php'; //
+require_once 'auth.php'; 
+requireRole('student'); 
+require_once 'config.php'; 
 
-$conn = getConnection(); //
+$conn = getConnection(); 
 
-$user_id = (int)($_SESSION['user_id'] ?? 0); //
-$full_name = $_SESSION['full_name'] ?? 'Student User'; //
+$user_id = (int)($_SESSION['user_id'] ?? 0); 
+$full_name = $_SESSION['full_name'] ?? 'Student User'; 
 
-/**
- * Escapes HTML for safety
- */
 function e($value) {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 }
 
-/**
- * Generates initials for the avatar
- */
 function get_initials($name) {
     $name = trim((string)$name);
     if ($name === '') return 'ST';
@@ -32,9 +26,6 @@ function get_initials($name) {
     return $initials ?: 'ST';
 }
 
-/**
- * Database Query to fetch student, internship, lecturer, and supervisor info
- */
 $sql = "
     SELECT
         s.student_id,
